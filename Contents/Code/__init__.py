@@ -3,13 +3,14 @@ import urllib2			# urllib2.Request
 import ssl				# HTTPS-Handshake
 import random			# Zufallswerte für rating_key
 import sys				# Plattformerkennung
+import re				# u.a. Reguläre Ausdrücke, z.B. in CalculateDuration
 import updater
 
 
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.1.2'		
+VERSION =  '0.1.3'		
 VDATE = '20.09.2017'
 
 # 
@@ -81,10 +82,10 @@ def Main():
 
 	title = 'Durchstöbern'
 	title = title.decode(encoding="utf-8", errors="ignore")
-	oc = ObjectContainer(title2=title)
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 
-	username = Prefs['username']
-	Log(username)
+	username = Prefs['username']	
+	# Log(username)														# privat! nur für lokale Tests
 
 	if username:
 		my_title = 'Meine Favoriten'
@@ -153,7 +154,7 @@ def Rubriken(url, title, image):
 	oc_title2 = oc_title2.decode(encoding="utf-8", errors="ignore")
 	
 	key 	= stringextract('key="', '"', page)				# Bsp. key="stations">
-	oc = ObjectContainer(title2=oc_title2)
+	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
 	
 	for rubrik in rubriken:
@@ -186,7 +187,7 @@ def StationList(url, title, image, summ, typ):
 	summ = unescape(summ)
 	Log(image);Log(summ);Log(typ)
 	title = title.decode(encoding="utf-8", errors="ignore")
-	oc = ObjectContainer(title2=title)
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 	
 	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
 	client = Client.Platform
@@ -225,8 +226,12 @@ def StationList(url, title, image, summ, typ):
 	Log(url_list)
 	url_list = repl_dop(url_list)				# Doppler entfernen	
 	Log(url_list)
+	
 	for url in url_list:
-		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image))
+		fmt='mp3'
+		if 'aac' in url:						# nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX
+			fmt='aac'
+		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
 		
 	if len(oc) == 0:
 		return ObjectContainer(header='Error', message='keinen Stream zu %s gefunden' % title)					
@@ -273,7 +278,8 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 	
 #-----------------------------
 @route(PREFIX + '/CreateTrackObject')
-def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
+def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, location=None, 
+		includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('CreateTrackObject: ' + url); Log(include_container)
 	Log(summary);Log(fmt);Log(thumb);
 
@@ -281,6 +287,14 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 		container = Container.MP3
 		# container = 'mp3'
 		audio_codec = AudioCodec.MP3
+	elif fmt == 'aac':
+		container = Container.MP4
+		# container = 'aac'
+		audio_codec = AudioCodec.AAC
+	elif fmt == 'hls':
+		protocol = 'hls'
+		container = 'mpegts'
+		audio_codec = AudioCodec.AAC	
 
 	title = title.decode(encoding="utf-8", errors="ignore")
 	summary = summary.decode(encoding="utf-8", errors="ignore")
@@ -291,11 +305,12 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 	Log(rating_key)
 
 	track_object = TrackObject(
-		key = Callback(CreateTrackObject, url=url, title=title, summary=summary, fmt=fmt, thumb=thumb, include_container=True, 
-				location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None),
+		key = Callback(CreateTrackObject, url=url, title=title, summary=summary, fmt=fmt, thumb=thumb,  
+				include_container=True, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None),
 		rating_key = rating_key,	
 		title = title,
 		summary = summary,
+		# art=thumb,					# Auflösung i.d.R. zu niedrig
 		thumb=thumb,
 		items = [
 			MediaObject(
@@ -343,6 +358,45 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 ####################################################################################################
 #									Hilfsfunktionen
 ####################################################################################################
+
+@route(PREFIX + '/SearchUpdate')
+def SearchUpdate(title):		#
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)	
+
+	ret = updater.update_available(VERSION)
+	int_lv = ret[0]			# Version Github
+	int_lc = ret[1]			# Version aktuell
+	latest_version = ret[2]	# Version Github, Format 1.4.1
+	summ = ret[3]			# Plugin-Name
+	tag = ret[4]			# History (last change)
+
+	url = 'https://github.com/{0}/releases/download/{1}/{2}.bundle.zip'.format(GITHUB_REPOSITORY, latest_version, REPO_NAME)
+	Log(latest_version); Log(int_lv); Log(int_lc); Log(url); 
+	
+	if int_lv > int_lc:		# zum Testen drehen (akt. Plugin vorher sichern!)
+		oc.add(DirectoryObject(
+			key = Callback(updater.update, url=url , ver=latest_version), 
+			title = 'neues Update vorhanden - jetzt installieren',
+			summary = 'Plugin aktuell: ' + VERSION + ', neu auf Github: ' + latest_version,
+			tagline = cleanhtml(summ),
+			thumb = R(ICON_UPDATER_NEW)))
+			
+		oc.add(DirectoryObject(
+			key = Callback(Main), 
+			title = 'Update abbrechen',
+			summary = 'weiter im aktuellen Plugin',
+			thumb = R(ICON_UPDATER_NEW)))
+	else:	
+		oc.add(DirectoryObject(
+			#key = Callback(updater.menu, title='Update Plugin'), 
+			key = Callback(Main), 
+			title = 'Plugin ist aktuell | weiter zum aktuellen Plugin',
+			summary = 'Plugin Version ' + VERSION + ' ist aktuell (kein Update vorhanden)',
+			tagline = cleanhtml(summ),
+			thumb = R(ICON_OK)))
+			
+	return oc	
+#----------------------------------------------------------------  
 def blockextract(blockmark, mString):  	# extrahiert Blöcke begrenzt durch blockmark aus mString
 	#	blockmark bleibt Bestandteil der Rückgabe - im Unterschied zu split()
 	#	Rückgabe in Liste. Letzter Block reicht bis Ende mString (undefinierte Länge),
@@ -395,6 +449,12 @@ def unescape(line):	# HTML-Escapezeichen in Text entfernen, bei Bedarf erweitern
 		
 	# Log(line_ret)		# bei Bedarf
 	return line_ret	
+#----------------------------------------------------------------  	
+def cleanhtml(line): # ersetzt alle HTML-Tags zwischen < und >  mit 1 Leerzeichen
+	cleantext = line
+	cleanre = re.compile('<.*?>')
+	cleantext = re.sub(cleanre, ' ', line)
+	return cleantext
 #----------------------------------------------------------------  
 def repl_dop(liste):	# Doppler entfernen, im Python-Script OK, Problem in Plex - s. PageControl
 	mylist=liste
