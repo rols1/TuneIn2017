@@ -2,6 +2,42 @@ import urllib			# urllib.quote(),
 import urllib2			# urllib2.Request
 import ssl				# HTTPS-Handshake
 import random			# Zufallswerte für rating_key
+import sys				# Plattformerkennung
+import updater
+
+
+
+# +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
+
+VERSION =  '0.1.2'		
+VDATE = '20.09.2017'
+
+# 
+#	
+
+# (c) 2016 by Roland Scholz, rols1@gmx.de
+# 
+# 	Licensed under MIT License (MIT)
+# 	(previously licensed under GPL 3.0)
+# 	A copy of the License you find here:
+#		https://github.com/rols1/Plex-Plugin-ARDMediathek2016/blob/master/LICENSE.md
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+# PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE 
+# FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
+# DEALINGS IN THE SOFTWARE.
+
+ICON_OK 				= "icon-ok.png"
+ICON_WARNING 			= "icon-warning.png"
+ICON_NEXT 				= "icon-next.png"
+ICON_CANCEL 			= "icon-error.png"
+ICON_MEHR 				= "icon-mehr.png"
+ICON_SEARCH 			= 'ard-suche.png'						
+
+ICON_MAIN_UPDATER 		= 'plugin-update.png'		
+ICON_UPDATER_NEW 		= 'plugin-update-new.png'
 
 
 ART    	= 'art-default.jpg'
@@ -11,6 +47,9 @@ NAME	= 'TuneIn2017'
 ROOT_URL = 'http://opml.radiotime.com/Browse.ashx?formats=mp3,aac'
 USER_URL = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
 PREFIX = '/music/tunein2017'
+
+REPO_NAME		 	= NAME
+GITHUB_REPOSITORY 	= 'rols1/' + REPO_NAME
 
 ####################################################################################################
 def Start():
@@ -26,6 +65,20 @@ def Start():
 @route(PREFIX)
 def Main():
 	Log('Main')
+	
+	# nützliche Debugging-Variablen:
+	Log('Plugin-Version: ' + VERSION); Log('Plugin-Datum: ' + VDATE)	
+	client_platform = str(Client.Platform)								# Client.Platform: None möglich
+	client_product = str(Client.Product)								# Client.Product: None möglich
+	Log('Client-Platform: ' + client_platform)							
+	Log('Client-Product: ' + client_product)							    
+	Log('Plattform: ' + sys.platform)									# Server-Infos
+	Log('Platform.OSVersion: ' + Platform.OSVersion)					# dto.
+	Log('Platform.CPU: '+ Platform.CPU)									# dto.
+	Log('Platform.ServerVersion: ' + Platform.ServerVersion)			# dto.
+	
+	Dict.Reset()														# Speicherobjekte des Plugins löschen
+
 	title = 'Durchstöbern'
 	title = title.decode(encoding="utf-8", errors="ignore")
 	oc = ObjectContainer(title2=title)
@@ -51,7 +104,33 @@ def Main():
 			key = Callback(Rubriken, url=local_url, title=text, image=image),
 			title = text, thumb = R(ICON) 
 		))   
-		                 
+		       
+#-----------------------------	# Updater-Modul einbinden:
+	
+	repo_url = 'https://github.com/{0}/releases/'.format(GITHUB_REPOSITORY)
+	call_update = False
+	if Prefs['pref_info_update'] == True:				# Hinweis auf neues Update beim Start des Plugins 
+		ret = updater.update_available(VERSION)
+		int_lv = ret[0]			# Version Github
+		int_lc = ret[1]			# Version aktuell
+		latest_version = ret[2]	# Version Github, Format 1.4.1
+		if ret[0] == False:
+			msgH = 'Error'; msg = 'Github ist nicht errreichbar. Bitte in den Einstellungen die Update-Anzeige abschalten.'		
+			return ObjectContainer(header=msgH, message=msg)		
+		
+		if int_lv > int_lc:								# Update-Button "installieren" zeigen
+			call_update = True
+			title = 'neues Update vorhanden - jetzt installieren'
+			summary = 'Plugin aktuell: ' + VERSION + ', neu auf Github: ' + latest_version
+			url = 'https://github.com/{0}/releases/download/{1}/{2}.bundle.zip'.format(GITHUB_REPOSITORY, latest_version, REPO_NAME)
+			oc.add(DirectoryObject(key=Callback(updater.update, url=url , ver=latest_version), 
+				title=title, summary=summary, tagline=cleanhtml(summary), thumb=R(ICON_UPDATER_NEW)))
+	if call_update == False:							# Update-Button "Suche" zeigen	
+		title = 'Plugin-Update | akt. Version: ' + VERSION + ' vom ' + VDATE	
+		summary='Suche nach neuen Updates starten'
+		tagline='Bezugsquelle: ' + repo_url			
+		oc.add(DirectoryObject(key=Callback(SearchUpdate, title='Plugin-Update'), 
+			title=title, summary=summary, tagline=tagline, thumb=R(ICON_MAIN_UPDATER)))
 	return oc
 						
 #----------------------------------------------------------------

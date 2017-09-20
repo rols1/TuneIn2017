@@ -1,8 +1,14 @@
 [
-  {
-    "id": "username",
-    "type": "text",
-    "label": "TuneIn username",
-    "default": ""
-  }
+	{
+		"id": "username",
+		"type": "text",
+		"label": "TuneIn username",
+		"default": ""
+	},
+	{	
+		"id": "pref_info_update",
+		"label": "neues Update beim Start des Plugins anzeigen",
+		"type": "bool",
+		"default": "true"
+	},
 ]
