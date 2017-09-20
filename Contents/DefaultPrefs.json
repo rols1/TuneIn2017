@@ -1,0 +1,8 @@
+[
+  {
+    "id": "username",
+    "type": "text",
+    "label": "TuneIn username",
+    "default": ""
+  }
+]
