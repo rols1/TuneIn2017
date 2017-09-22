@@ -10,8 +10,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.1.3'		
-VDATE = '20.09.2017'
+VERSION =  '0.1.4'		
+VDATE = '22.09.2017'
 
 # 
 #	
@@ -147,6 +147,20 @@ def Rubriken(url, title, image):
 
 	page = HTTP.Request(url).content	# xml-Übersicht Rubriken
 	Log(page[:100])
+	
+	if title == 'Meine Favoriten':		# Test auf falschen Usernamen
+		status  = stringextract('<status>', '</status>', page)
+		if status == '400':
+			oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+			username = Prefs['username']	
+			title = 'User > %s < nicht gefunden' % Prefs['username']
+			title = title.decode(encoding="utf-8", errors="ignore")
+			summary = 'tuneIn-Status: 400'
+			tagline = 'Bitte Username überprüfen'
+			tagline = tagline.decode(encoding="utf-8", errors="ignore")
+			oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, tagline=tagline, thumb=R(ICON_CANCEL)))
+			return oc			
+	
 	rubriken = blockextract('<outline type', page)
 	
 	oc_title2 = stringextract('<title>', '</title>', page)	# Bsp. <title>Frankfurt am Main</title>
@@ -197,16 +211,17 @@ def StationList(url, title, image, summ, typ):
 		oc = home(oc)					
 			
 	cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
+	# Log(cont)
+	Log(len(cont))
 	Log(cont[:100])
 	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist				
 		cont = get_pls(cont)
-		
-	Log(cont)
-			
+					
 	url_list = []						# Url-Liste 
 	lines = cont.splitlines()	
 	for line in lines:
-		Log(line)
+		# Log(line)
+		Log(line[:100])
 		url = line
 		# if line.endswith('.m3u'):				# ein oder mehrere .m3u-Links
 		if '.m3u' in line:						# auch das: ..playlist/newsouth-wusjfmmp3-ibc3.m3u?c_yob=1970&c_gender..
@@ -217,7 +232,8 @@ def StationList(url, title, image, summ, typ):
 			Log(url)	
 												# Sonderfälle:
 		if 	'radiostreamer.com' in url:			# Streamhoster http://www.radiostreamer.com/: rs1.radiostreamer.com .. rs9..
-			url = url + '/;stream/1'			#	 Div. Ports, Bsp. 'http://rs1.radiostreamer.com:8020'
+			# url = url + '/;stream/1'			#	 Div. Ports, Bsp. 'http://rs1.radiostreamer.com:8020'
+			url = url + ';stream'			#	 Div. Ports, Bsp. 'http://rs1.radiostreamer.com:8020'
 
 				
 		if 	url.startswith('http'):				# in Url-Liste 
@@ -227,26 +243,42 @@ def StationList(url, title, image, summ, typ):
 	url_list = repl_dop(url_list)				# Doppler entfernen	
 	Log(url_list)
 	
+	# todo: sichere Codec-Erkennung via ffmpeg
+	i=1; org_title=title
 	for url in url_list:
 		fmt='mp3'
 		if 'aac' in url:						# nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX
 			fmt='aac'
+		title = org_title + ' | Stream %s'  % str(i) 
+		i=i+1
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
 		
-	if len(oc) == 0:
+	if len(url_list) == 0:
 		return ObjectContainer(header='Error', message='keinen Stream zu %s gefunden' % title)					
 	return oc
 
 #-----------------------------
 def get_pls(url):               # Playlist holen
 	Log('get_pls: ' + url)
-	url =url.splitlines()[0]	# manchmal mehrere enthalten, wir verwenden nur den ersten Link 
+	urls =url.splitlines()	# manchmal mehrere enthalten, auch SHOUTcast.Links, Bsp. http://64.150.176.192:8043/, 
+	for url in urls:		# wir verwenden aber nur den ersten pls-Link 
+		if url.endswith('.pls'):
+			break
+
 	try:
-		pls = HTTP.Request(url).content 	# Bsp. http://rmfon.pl/n/rmfswieta.pls
+		# pls = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>
+		req = urllib2.Request(url)
+		ret = urllib2.urlopen(req)
+		pls = ret.read()	
 		Log(pls)
 		if '[playlist]' in pls == False:	# erst pls_url führt zur Playlist
 			pls = HTTP.Request(pls).content # Bsp. [playlist] File1=http://195.150.20.9:8000/rmf_baby
-	except:
+	except Exception as exception:	
+		error_txt = 'Server meldet: ' + str(exception)
+		error_txt = error_txt + '\r\n' + url			 			 	 
+		msgH = 'Error'; msg = error_txt
+		msg =  msg.decode(encoding="utf-8", errors="ignore")
+		Log(msg)
 		pls = '' 
 		   
 	Log(pls)
@@ -281,7 +313,7 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, location=None, 
 		includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('CreateTrackObject: ' + url); Log(include_container)
-	Log(summary);Log(fmt);Log(thumb);
+	Log(title);Log(summary);Log('fmt: ' + fmt);Log(thumb);
 
 	if fmt == 'mp3':
 		container = Container.MP3
@@ -315,7 +347,7 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 		items = [
 			MediaObject(
 				parts = [
-					PartObject(key=Callback(PlayAudio, url=url, ext=fmt)) # runtime- Aufruf: PlayAudio.mp3
+					PartObject(key=Callback(PlayAudio, url=url, ext=fmt)) # Bsp. runtime- Aufruf: PlayAudio.mp3 
 				],
 				container = container,
 				audio_codec = audio_codec,
@@ -335,7 +367,7 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 @route(PREFIX + '/PlayAudio') 
 # def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, includeConcerts=None, includeExtras=None, includeOnDeck=None, includePopularLeaves=None, includeChapters=None, checkFiles=None, **kwargs):	
 def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):	
-	Log('PlayAudio: ' + url )	
+	Log('PlayAudio')
 		
 	if url is None or url == '':		# sollte hier nicht vorkommen
 		Log('Url fehlt!')
@@ -344,7 +376,7 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 		req = urllib2.Request(url)						# Test auf Existenz, SSLContext für HTTPS erforderlich,
 		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
 		ret = urllib2.urlopen(req, context=gcontext)
-		Log('PlayAudio: ' + str(ret.code))
+		Log('PlayAudio: %s | %s' % (str(ret.code), url))
 	except Exception as exception:	
 		error_txt = 'Server meldet: ' + str(exception)
 		error_txt = error_txt + '\r\n' + url			 			 	 
@@ -390,8 +422,8 @@ def SearchUpdate(title):		#
 		oc.add(DirectoryObject(
 			#key = Callback(updater.menu, title='Update Plugin'), 
 			key = Callback(Main), 
-			title = 'Plugin ist aktuell | weiter zum aktuellen Plugin',
-			summary = 'Plugin Version ' + VERSION + ' ist aktuell (kein Update vorhanden)',
+			title = 'Plugin ist up to date | zum Start',
+			summary = 'Plugin Version ' + VERSION + ' ist die neueste Version',
 			tagline = cleanhtml(summ),
 			thumb = R(ICON_OK)))
 			
