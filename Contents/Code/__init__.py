@@ -10,8 +10,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.1.4'		
-VDATE = '22.09.2017'
+VERSION =  '0.1.5'		
+VDATE = '23.09.2017'
 
 # 
 #	
@@ -60,6 +60,27 @@ def Start():
 	ObjectContainer.art = R(ART)
 	DirectoryObject.art = R(ART)
 	DirectoryObject.thumb = R(ICON)
+	
+	ValidatePrefs()
+	
+def ValidatePrefs():	# Locale-Probleme s. https://forums.plex.tv/discussion/126807/another-localization-question
+	try:
+		loc = Prefs['language'].split('/')[1]
+	except:
+		loc = 'en-us'
+	if Core.storage.file_exists(Core.storage.abs_path(
+		Core.storage.join_path(
+			Core.bundle_path,
+			'Contents',
+			'Strings',
+			'%s.json' % loc
+		)
+	)):
+		Locale.DefaultLocale = loc
+	else:
+		Locale.DefaultLocale = 'en-us'
+	Dict['loc'] = loc
+	Log('loc: %s' % loc)
 
 ####################################################################################################
 @handler(PREFIX, NAME,  art = ART, thumb = ICON)
@@ -82,28 +103,35 @@ def Main():
 
 	title = 'Durchstöbern'
 	title = title.decode(encoding="utf-8", errors="ignore")
+	title = L(title)
+			
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 
 	username = Prefs['username']	
 	# Log(username)														# privat! nur für lokale Tests
 
 	if username:
-		my_title = 'Meine Favoriten'
+		my_title = u'%s' % L('Meine Favoriten')
 		my_url = USER_URL % username
-		my_stations = L('My Stations')
 		oc.add(DirectoryObject(
 			key = Callback(Rubriken, url=my_url, title=my_title, image=ICON),
 			title = my_title, thumb = R(ICON) 
 		))                    
 		
-	page = HTTP.Request(ROOT_URL).content	# xml-Übersicht Rubriken
+	loc = str(Dict['loc'])							# ergibt ohne str: u'de
+	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'		# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
+	headers={'Accept-Language': loc}
+	Log(headers)
+	page = HTTP.Request(ROOT_URL, headers=headers).content	# xml-Übersicht Rubriken
 	Log(page[:60])
 	rubriken = blockextract('<outline', page)
 	for rubrik in rubriken:
 		typ,local_url,text,image,key,subtext= get_details(line=rubrik)	# xml extrahieren
+		text = text.decode(encoding="utf-8", errors="ignore")
+		subtext = subtext.decode(encoding="utf-8", errors="ignore")
 		oc.add(DirectoryObject(
 			key = Callback(Rubriken, url=local_url, title=text, image=image),
-			title = text, thumb = R(ICON) 
+			title = text, summary=subtext, thumb = R(ICON) 
 		))   
 		       
 #-----------------------------	# Updater-Modul einbinden:
@@ -115,21 +143,23 @@ def Main():
 		int_lv = ret[0]			# Version Github
 		int_lc = ret[1]			# Version aktuell
 		latest_version = ret[2]	# Version Github, Format 1.4.1
+
 		if ret[0] == False:
-			msgH = 'Error'; msg = 'Github ist nicht errreichbar. Bitte in den Einstellungen die Update-Anzeige abschalten.'		
-			return ObjectContainer(header=msgH, message=msg)		
-		
+			msgH = L('Fehler'); 
+			msg = L('Github ist nicht errreichbar') +  ' - ' +  L('Bitte die Update-Anzeige abschalten')		
+			return ObjectContainer(header=msgH, message=msg)
+	
 		if int_lv > int_lc:								# Update-Button "installieren" zeigen
 			call_update = True
-			title = 'neues Update vorhanden - jetzt installieren'
-			summary = 'Plugin aktuell: ' + VERSION + ', neu auf Github: ' + latest_version
+			title = L('neues Update vorhanden') +  ' - ' + L('jetzt installieren')
+			summary = 'Plugin Version: ' + VERSION + ', Github Version: ' + latest_version
 			url = 'https://github.com/{0}/releases/download/{1}/{2}.bundle.zip'.format(GITHUB_REPOSITORY, latest_version, REPO_NAME)
 			oc.add(DirectoryObject(key=Callback(updater.update, url=url , ver=latest_version), 
 				title=title, summary=summary, tagline=cleanhtml(summary), thumb=R(ICON_UPDATER_NEW)))
 	if call_update == False:							# Update-Button "Suche" zeigen	
-		title = 'Plugin-Update | akt. Version: ' + VERSION + ' vom ' + VDATE	
-		summary='Suche nach neuen Updates starten'
-		tagline='Bezugsquelle: ' + repo_url			
+		title = 'Plugin-Update | Version: ' + VERSION + ' - ' + VDATE	
+		summary=L('Suche nach neuen Updates starten')
+		tagline=L('Bezugsquelle: ') + repo_url			
 		oc.add(DirectoryObject(key=Callback(SearchUpdate, title='Plugin-Update'), 
 			title=title, summary=summary, tagline=tagline, thumb=R(ICON_MAIN_UPDATER)))
 	return oc
@@ -137,7 +167,7 @@ def Main():
 #----------------------------------------------------------------
 def home(oc):											# Home-Button
 	Log('home')	
-	title = 'Start' 	
+	title = 'Home' 	
 	oc.add(DirectoryObject(key=Callback(Main),title=title, summary=title, tagline=NAME, thumb=R('home.png')))
 	return oc
 #-----------------------------
@@ -145,21 +175,23 @@ def home(oc):											# Home-Button
 def Rubriken(url, title, image):
 	Log('Rubriken: ' + url)
 
-	page = HTTP.Request(url).content	# xml-Übersicht Rubriken
+	loc = str(Dict['loc'])	
+	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'			# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
+	headers={'Accept-Language': loc}
+	Log(headers)
+	page = HTTP.Request(url, headers=headers).content	# xml-Übersicht Rubriken
 	Log(page[:100])
-	
-	if title == 'Meine Favoriten':		# Test auf falschen Usernamen
-		status  = stringextract('<status>', '</status>', page)
-		if status == '400':
-			oc = ObjectContainer(title2=title, art=ObjectContainer.art)
-			username = Prefs['username']	
-			title = 'User > %s < nicht gefunden' % Prefs['username']
-			title = title.decode(encoding="utf-8", errors="ignore")
-			summary = 'tuneIn-Status: 400'
-			tagline = 'Bitte Username überprüfen'
-			tagline = tagline.decode(encoding="utf-8", errors="ignore")
-			oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, tagline=tagline, thumb=R(ICON_CANCEL)))
-			return oc			
+		
+	status  = stringextract('<status>', '</status>', page)
+	if status == '400':									# Test auf Status 400 - ev. falscher Username
+		oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+		title = title.decode(encoding="utf-8", errors="ignore")
+		title = L('Fehler') + ' | ' + 'tuneIn-Status: 400'
+		summary = 'Bitte Username überprüfen'
+		summary = summary.decode(encoding="utf-8", errors="ignore")
+		summary = L(summary)
+		oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, thumb=R(ICON_CANCEL)))
+		return oc			
 	
 	rubriken = blockextract('<outline type', page)
 	
@@ -175,8 +207,8 @@ def Rubriken(url, title, image):
 		#Log(rubrik)
 		typ,local_url,text,image,key,subtext = get_details(line=rubrik)	# xml extrahieren
 		Log(local_url)
-		Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
-		Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
+		# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
+		# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
 		text = text.decode(encoding="utf-8", errors="ignore")
 		subtext = subtext.decode(encoding="utf-8", errors="ignore")
 		
@@ -195,6 +227,16 @@ def Rubriken(url, title, image):
 	return oc
 
 #-----------------------------
+# Auswertung der Streamlinks:
+#	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
+#	2. Test auf Playlist-Datei (.pls) - Details siehe get_pls
+#	3. Behandlung der url-Liste:
+#		3.1. falls .m3u8-Datei: Inhalt laden
+#		3.2. Streamlinks der einzelnen Playlist-Einträge extrahieren
+#		3.3. Behandlung von Sonderfällen, z.B. Links zu s1.radiostreamer.com
+#	4. Doppler in der url-Liste entfernen
+#	5. Aufbau des TrackObjects mit den einzelnen Url's der Liste
+#
 @route(PREFIX + '/StationList')
 def StationList(url, title, image, summ, typ):
 	Log('StationList: ' + url)
@@ -254,7 +296,7 @@ def StationList(url, title, image, summ, typ):
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
 		
 	if len(url_list) == 0:
-		return ObjectContainer(header='Error', message='keinen Stream zu %s gefunden' % title)					
+		return ObjectContainer(header=L('Fehler'), message=L('keinen Stream gefunden zu: ') + title)					
 	return oc
 
 #-----------------------------
@@ -271,12 +313,12 @@ def get_pls(url):               # Playlist holen
 		ret = urllib2.urlopen(req)
 		pls = ret.read()	
 		Log(pls)
-		if '[playlist]' in pls == False:	# erst pls_url führt zur Playlist
+		if '[playlist]' in pls == False:	# Playlist erst mit der gefundenen url verfügbar 
 			pls = HTTP.Request(pls).content # Bsp. [playlist] File1=http://195.150.20.9:8000/rmf_baby
 	except Exception as exception:	
-		error_txt = 'Server meldet: ' + str(exception)
+		error_txt = 'Servermessage: ' + str(exception)
 		error_txt = error_txt + '\r\n' + url			 			 	 
-		msgH = 'Error'; msg = error_txt
+		msgH = L('Fehler'); msg = error_txt
 		msg =  msg.decode(encoding="utf-8", errors="ignore")
 		Log(msg)
 		pls = '' 
@@ -305,6 +347,7 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 	
 	#Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text); Log("image: " +image); 
 	#Log("key: " +key); Log("subtext: " +subtext);
+	#Log("text: " +text)
 
 	return typ,local_url,text,image,key,subtext
 	
@@ -378,9 +421,9 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 		ret = urllib2.urlopen(req, context=gcontext)
 		Log('PlayAudio: %s | %s' % (str(ret.code), url))
 	except Exception as exception:	
-		error_txt = 'Server meldet: ' + str(exception)
+		error_txt = 'Servermessage: ' + str(exception)
 		error_txt = error_txt + '\r\n' + url			 			 	 
-		msgH = 'Error'; msg = error_txt
+		msgH = L('Fehler'); msg = error_txt
 		msg =  msg.decode(encoding="utf-8", errors="ignore")
 		Log(msg)
 		return ObjectContainer(header=msgH, message=msg) # Framework fängt ab - keine Ausgabe
@@ -408,22 +451,22 @@ def SearchUpdate(title):		#
 	if int_lv > int_lc:		# zum Testen drehen (akt. Plugin vorher sichern!)
 		oc.add(DirectoryObject(
 			key = Callback(updater.update, url=url , ver=latest_version), 
-			title = 'neues Update vorhanden - jetzt installieren',
-			summary = 'Plugin aktuell: ' + VERSION + ', neu auf Github: ' + latest_version,
+			title = L('neues Update vorhanden - jetzt installieren'),
+			summary = 'Plugin Version: ' + VERSION + ', Github Version ' + latest_version,
 			tagline = cleanhtml(summ),
 			thumb = R(ICON_UPDATER_NEW)))
 			
 		oc.add(DirectoryObject(
 			key = Callback(Main), 
-			title = 'Update abbrechen',
-			summary = 'weiter im aktuellen Plugin',
+			title = L('Update abbrechen'),
+			summary = L('weiter im aktuellen Plugin'),
 			thumb = R(ICON_UPDATER_NEW)))
 	else:	
 		oc.add(DirectoryObject(
 			#key = Callback(updater.menu, title='Update Plugin'), 
 			key = Callback(Main), 
-			title = 'Plugin ist up to date | zum Start',
-			summary = 'Plugin Version ' + VERSION + ' ist die neueste Version',
+			title = 'Plugin up to date | Home',
+			summary = 'Plugin Version ' + VERSION + L(' ist die neueste Version'),
 			tagline = cleanhtml(summ),
 			thumb = R(ICON_OK)))
 			

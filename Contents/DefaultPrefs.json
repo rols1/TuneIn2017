@@ -1,14 +1,26 @@
 [
-	{
-		"id": "username",
-		"type": "text",
-		"label": "TuneIn username",
-		"default": ""
-	},
 	{	
 		"id": "pref_info_update",
 		"label": "neues Update beim Start des Plugins anzeigen",
 		"type": "bool",
 		"default": "true"
 	},
+	{
+		"id": "username",
+		"type": "text",
+		"label": "TuneIn username",
+		"default": ""
+	},
+    	{
+	        "id": "language",
+	        "type": "enum",
+	        "label": "Sprache / Language",
+	        "default": "German/de",
+	        "values": [
+	            "",
+	            "German/de",
+	            "English/en",
+        	]
+        },
+
 ]
