@@ -101,7 +101,7 @@ def Main():
 	
 	Dict.Reset()														# Speicherobjekte des Plugins löschen
 
-	title = 'Durchstöbern'
+	title = 'Durchstoebern'
 	title = title.decode(encoding="utf-8", errors="ignore")
 	title = L(title)
 			
