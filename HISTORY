@@ -1,7 +1,12 @@
 CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------		
-	
+
+24.09.2017	0.1.6	Suche hinzugefügt (Funktion Search, mehrteilige Suchbegiffe ermöglicht).
+			Funktionen Rubriken/get_details: Auswertung Bitrate hinzugefügt, Ausgabe in tagline.
+			Funktion StationList: Fehler "keinen Stream gefunden" abgefangen.
+			Funktionen Main + Rubriken: UnicodeDecodeError abgefangen
+			Google-Sprachausgabe erfolglos getestet - Codeanteil wieder entfernt.		
 23.09.2017	0.1.5	Lokalisierung Plugin: json-Datei mit Dialogtexten für Deutsch + Englisch
 			erstellt. Initialisierung in ValidatePrefs().
 			Funktion get_pls: Verbesserung der Playlist-Auswertung. Absicherung gegen

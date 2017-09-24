@@ -4,14 +4,15 @@ import ssl				# HTTPS-Handshake
 import random			# Zufallswerte für rating_key
 import sys				# Plattformerkennung
 import re				# u.a. Reguläre Ausdrücke, z.B. in CalculateDuration
+import json				# json -> Textstrings
 import updater
 
 
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.1.5'		
-VDATE = '23.09.2017'
+VERSION =  '0.1.6'		
+VDATE = '24.09.2017'
 
 # 
 #	
@@ -107,6 +108,9 @@ def Main():
 			
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 
+	oc.add(InputDirectoryObject(key=Callback(Search), title=u'%s' % L('Suche'), prompt=u'%s' % L('Search Video'), 
+		thumb=R(ICON_SEARCH)))
+		
 	username = Prefs['username']	
 	# Log(username)														# privat! nur für lokale Tests
 
@@ -120,13 +124,13 @@ def Main():
 		
 	loc = str(Dict['loc'])							# ergibt ohne str: u'de
 	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'		# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
-	headers={'Accept-Language': loc}
-	Log(headers)
+	headers=''	# {'Accept-Language': loc}			# z.Z. nicht genutzt - Auswirkung bei TuneIn nicht sicher
+	# Log(headers)
 	page = HTTP.Request(ROOT_URL, headers=headers).content	# xml-Übersicht Rubriken
-	Log(page[:60])
+	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 	rubriken = blockextract('<outline', page)
-	for rubrik in rubriken:
-		typ,local_url,text,image,key,subtext= get_details(line=rubrik)	# xml extrahieren
+	for rubrik in rubriken:							# bitrate hier n.b.
+		typ,local_url,text,image,key,subtext,bitrate= get_details(line=rubrik)	# xml extrahieren
 		text = text.decode(encoding="utf-8", errors="ignore")
 		subtext = subtext.decode(encoding="utf-8", errors="ignore")
 		oc.add(DirectoryObject(
@@ -165,10 +169,25 @@ def Main():
 	return oc
 						
 #----------------------------------------------------------------
-def home(oc):											# Home-Button
+def home(oc):										# Home-Button
 	Log('home')	
 	title = 'Home' 	
 	oc.add(DirectoryObject(key=Callback(Main),title=title, summary=title, tagline=NAME, thumb=R('home.png')))
+	return oc
+#-----------------------------
+@route(PREFIX + '/Search')
+def Search(query=None):
+	Log('Search: ' + str(query))
+	oc_title2 = L('Suche nach: ')
+	oc_title2 = oc_title2 + query.decode(encoding="utf-8", errors="ignore")
+	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
+	oc = home(oc)
+	
+	query = query.replace(' ', '+')
+	query = urllib2.quote(query, "utf-8")
+	url = 'http://opml.radiotime.com/Search.ashx?query=%s' % query
+	oc = Rubriken(url=url, title=oc_title2, image=R(ICON_SEARCH))
+		
 	return oc
 #-----------------------------
 @route(PREFIX + '/Rubriken')
@@ -176,14 +195,14 @@ def Rubriken(url, title, image):
 	Log('Rubriken: ' + url)
 
 	loc = str(Dict['loc'])	
-	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'			# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
-	headers={'Accept-Language': loc}
-	Log(headers)
+	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'		# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
+	headers=''	# {'Accept-Language': loc}			# z.Z. nicht genutzt - Auswirkung bei TuneIn nicht sicher
+	# Log(headers)
 	page = HTTP.Request(url, headers=headers).content	# xml-Übersicht Rubriken
-	Log(page[:100])
+	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei gröeren Werten
 		
 	status  = stringextract('<status>', '</status>', page)
-	if status == '400':									# Test auf Status 400 - ev. falscher Username
+	if status == '400':								# Test auf Status 400 - ev. falscher Username
 		oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 		title = title.decode(encoding="utf-8", errors="ignore")
 		title = L('Fehler') + ' | ' + 'tuneIn-Status: 400'
@@ -205,14 +224,18 @@ def Rubriken(url, title, image):
 	
 	for rubrik in rubriken:
 		#Log(rubrik)
-		typ,local_url,text,image,key,subtext = get_details(line=rubrik)	# xml extrahieren
+		typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
 		Log(local_url)
 		# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
 		# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
+		# Log("bitrate: " +bitrate);
 		text = text.decode(encoding="utf-8", errors="ignore")
 		subtext = subtext.decode(encoding="utf-8", errors="ignore")
+		tagline = ''
+		if bitrate:
+			tagline = 'Bitrate: %s KB' % bitrate
 		
-		if typ == 'link':
+		if typ == 'link':									# bitrate hier n.b.
 			oc.add(DirectoryObject(
 				key = Callback(Rubriken, url=local_url, title=text, image=image),
 				title = text, summary=subtext, thumb = image 
@@ -221,7 +244,7 @@ def Rubriken(url, title, image):
 		if typ == 'audio':
 			oc.add(DirectoryObject(
 				key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ),
-				title = text, summary=subtext, thumb = image 
+				title = text, summary=subtext,  tagline=tagline, thumb = image 
 			))                    
 
 	return oc
@@ -249,9 +272,9 @@ def StationList(url, title, image, summ, typ):
 	client = Client.Platform
 	if client == None:
 		client = ''
-	if client.find ('Plex Home Theater'): 
+	if client.find ('Plex Home Theater'): # PHT verweigert TrackObject bei vorh. DirectoryObject
 		oc = home(oc)					
-			
+		
 	cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
 	# Log(cont)
 	Log(len(cont))
@@ -284,7 +307,7 @@ def StationList(url, title, image, summ, typ):
 	Log(url_list)
 	url_list = repl_dop(url_list)				# Doppler entfernen	
 	Log(url_list)
-	
+
 	# todo: sichere Codec-Erkennung via ffmpeg
 	i=1; org_title=title
 	for url in url_list:
@@ -296,7 +319,9 @@ def StationList(url, title, image, summ, typ):
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
 		
 	if len(url_list) == 0:
-		return ObjectContainer(header=L('Fehler'), message=L('keinen Stream gefunden zu: ') + title)					
+		msg=L('keinen Stream gefunden zu: ') 
+		message="%s %s" % (msg, title)
+		return ObjectContainer(header=L('Fehler'), message=message)
 	return oc
 
 #-----------------------------
@@ -312,7 +337,7 @@ def get_pls(url):               # Playlist holen
 		req = urllib2.Request(url)
 		ret = urllib2.urlopen(req)
 		pls = ret.read()	
-		Log(pls)
+		Log(pls[:10])
 		if '[playlist]' in pls == False:	# Playlist erst mit der gefundenen url verfügbar 
 			pls = HTTP.Request(pls).content # Bsp. [playlist] File1=http://195.150.20.9:8000/rmf_baby
 	except Exception as exception:	
@@ -321,7 +346,7 @@ def get_pls(url):               # Playlist holen
 		msgH = L('Fehler'); msg = error_txt
 		msg =  msg.decode(encoding="utf-8", errors="ignore")
 		Log(msg)
-		pls = '' 
+		Log(pls)
 		   
 	Log(pls)
 	return pls
@@ -339,6 +364,7 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 		image = R(ICON) 
 	key	 		= stringextract('key="', '"', line)
 	subtext 	= stringextract('subtext="', '"', line)
+	bitrate 	= stringextract('bitrate="', '"', line)
 	# itemAttr	= stringextract('itemAttr="', '"', line)	# n.b.
 	
 	local_url 	= unescape(local_url)
@@ -349,7 +375,7 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 	#Log("key: " +key); Log("subtext: " +subtext);
 	#Log("text: " +text)
 
-	return typ,local_url,text,image,key,subtext
+	return typ,local_url,text,image,key,subtext,bitrate
 	
 #-----------------------------
 @route(PREFIX + '/CreateTrackObject')
@@ -400,7 +426,6 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 		]
 	)
 
-
 	if include_container:
 		return ObjectContainer(objects=[track_object])
 	else:
@@ -408,10 +433,10 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 
 #-----------------------------
 @route(PREFIX + '/PlayAudio') 
-# def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, includeConcerts=None, includeExtras=None, includeOnDeck=None, includePopularLeaves=None, includeChapters=None, checkFiles=None, **kwargs):	
+#	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktionert mit PMS nicht
 def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):	
 	Log('PlayAudio')
-		
+	
 	if url is None or url == '':		# sollte hier nicht vorkommen
 		Log('Url fehlt!')
 		return ObjectContainer(header='Error', message='Url fehlt!') # Web-Player: keine Meldung

@@ -14,10 +14,9 @@
     	{
 	        "id": "language",
 	        "type": "enum",
-	        "label": "Sprache / Language",
+	        "label": "Sprache Plugin / Language Plugin",
 	        "default": "German/de",
 	        "values": [
-	            "",
 	            "German/de",
 	            "English/en",
         	]
