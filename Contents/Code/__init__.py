@@ -11,8 +11,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.1.6'		
-VDATE = '24.09.2017'
+VERSION =  '0.1.7'		
+VDATE = '25.09.2017'
 
 # 
 #	
@@ -124,7 +124,7 @@ def Main():
 		
 	loc = str(Dict['loc'])							# ergibt ohne str: u'de
 	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'		# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
-	headers=''	# {'Accept-Language': loc}			# z.Z. nicht genutzt - Auswirkung bei TuneIn nicht sicher
+	headers={'Accept-Language': loc}			# z.Z. nicht genutzt - Auswirkung bei TuneIn nicht sicher
 	# Log(headers)
 	page = HTTP.Request(ROOT_URL, headers=headers).content	# xml-Übersicht Rubriken
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
@@ -291,20 +291,38 @@ def StationList(url, title, image, summ, typ):
 		# if line.endswith('.m3u'):				# ein oder mehrere .m3u-Links
 		if '.m3u' in line:						# auch das: ..playlist/newsouth-wusjfmmp3-ibc3.m3u?c_yob=1970&c_gender..
 			url = HTTP.Request(line).content	# i.d.R. nur ein Direktlink, Bsp. http://absolut.hoerradar.de/..
+			url = url.strip()
 			Log(url)
 		if '=http' in line:						# Playlist-Eintrag, Bsp. File1=http://195.150.20.9:8000/..
 			url = line.split('=')[1]
 			Log(url)	
-												# Sonderfälle:
-		if 	'radiostreamer.com' in url:			# Streamhoster http://www.radiostreamer.com/: rs1.radiostreamer.com .. rs9..
-			# url = url + '/;stream/1'			#	 Div. Ports, Bsp. 'http://rs1.radiostreamer.com:8020'
-			url = url + ';stream'			#	 Div. Ports, Bsp. 'http://rs1.radiostreamer.com:8020'
 
+		ret = getStreamMeta(url)				# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
+		st = ret.get('status')					#  http://217.198.148.101:80/
+		Log('ret.get.status: ' + str(st))			
+		if st == 0:								# nicht erreichbar, verwerfen. Bsp. http://server-uk4.radioseninternetuy.com:9528
+			continue							
+		else:
+			if ret.get('metadata'):				# Status 1: Stream ist up, Metadaten aktualisieren
+				metadata = ret.get('metadata')
+				song = metadata.get('song')
+				if 'adw_ad=' in  song == False:	# ID3-Tags verwerfern
+					song = unescape(song)
+					title = title.decode(encoding="utf-8", errors="ignore")
+					bitrate = metadata.get('bitrate')
+					if song and bitrate:			# sonst bleibt es bei den vorh. Daten
+						summ = 'Song: %s | Bitrate: %sKB' % (song, bitrate)
+						
+				if  ret.get('hasPortNumber') == 'true': 
+					if url.endswith('/'):
+						url = '%s;' % url
+					else:
+						url = '%s/;' % url
+						
 				
 		if 	url.startswith('http'):				# in Url-Liste 
 			url_list.append(url)
 			
-	Log(url_list)
 	url_list = repl_dop(url_list)				# Doppler entfernen	
 	Log(url_list)
 
@@ -434,14 +452,14 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 #-----------------------------
 @route(PREFIX + '/PlayAudio') 
 #	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktionert mit PMS nicht
-def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):	
+def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('PlayAudio')
-	
-	if url is None or url == '':		# sollte hier nicht vorkommen
+		
+	if url is None or url == '':			# sollte hier nicht vorkommen
 		Log('Url fehlt!')
 		return ObjectContainer(header='Error', message='Url fehlt!') # Web-Player: keine Meldung
 	try:
-		req = urllib2.Request(url)						# Test auf Existenz, SSLContext für HTTPS erforderlich,
+		req = urllib2.Request(url)			# Test auf Existenz, SSLContext für HTTPS erforderlich,
 		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
 		ret = urllib2.urlopen(req, context=gcontext)
 		Log('PlayAudio: %s | %s' % (str(ret.code), url))
@@ -562,3 +580,194 @@ def repl_dop(liste):	# Doppler entfernen, im Python-Script OK, Problem in Plex -
 	mylist=list(myset)
 	mylist.sort()
 	return mylist
+#----------------------------------------------------------------  
+####################################################################################################
+#									Streamtest-Funktionen
+####################################################################################################
+# getStreamMeta ist Teil von streamscrobbler-python (https://github.com/dirble/streamscrobbler-python),
+#	Originalfunktiom: getAllData(self, address),  hier leicht angepasst für dieses Plugin.
+#	getStreamMeta wertet die Header der Stream-Typen und -Services Shoutcast, Icecast / Radionomy, 
+#		Streammachine, tunein aus und ermittelt die Metadaten.
+#		Zusätzlich wird die Url auf eine angehängte Portnummer geprüft.
+# 	Rückgabe 	Bsp. 1. {'status': 1, 'hasPortNumber': 'false', 'metadata': False}
+#				Bsp. 2.	{'status': 1, 'hasPortNumber': 'true', 'metadata': {'contenttype': 'audio/mpeg', 
+#						'bitrate': '64', 'song': 'Nasty Habits 41 - Senza Filtro 2017'}}
+#		
+def getStreamMeta(address):
+	Log('getStreamMeta: ' + address)
+	import httplib
+	from urlparse import urlparse
+	# import httplib2 as http	# hier nicht genutzt
+	# import pprint				# hier nicht genutzt
+	# import re					# bereits geladen
+	# import urllib2			# bereits geladen
+				
+	shoutcast = False
+	status = 0
+
+	# Test auf angehängte Portnummer (zusätzl. Indikator für Stream)
+	port = address.split(':')[-1]	# http://live.radiosbn.com:9400/
+	port = port.replace('/', '')	# angeh. Slash entf.
+	try:
+		number = int(port)
+		hasPortNumber='true'
+	except:
+		hasPortNumber='false'
+	
+	
+	request = urllib2.Request(address)
+	user_agent = 'iTunes/9.1.1'
+	request.add_header('User-Agent', user_agent)
+	request.add_header('icy-metadata', 1)
+	try:
+		response = urllib2.urlopen(request, timeout=6)
+		headers = getHeaders(response)
+		   
+		if "server" in headers:
+			shoutcast = headers['server']
+		elif "X-Powered-By" in headers:
+			shoutcast = headers['X-Powered-By']
+		elif "icy-notice1" in headers:
+			shoutcast = headers['icy-notice2']
+		else:
+			shoutcast = bool(1)
+
+		if isinstance(shoutcast, bool):
+			if shoutcast is True:
+				status = 1
+			else:
+				status = 0
+			metadata = False;
+		elif "SHOUTcast" in shoutcast:
+			status = 1
+			metadata = shoutcastCheck(response, headers, False)
+		elif "Icecast" or "137" in shoutcast:
+			status = 1
+			metadata = shoutcastCheck(response, headers, True)
+		elif "StreamMachine" in shoutcast:
+			status = 1
+			metadata = shoutcastCheck(response, headers, True)
+		elif shoutcast is not None:
+			status = 1
+			metadata = shoutcastCheck(response, headers, True)
+		else:
+			metadata = False
+		response.close()
+		return {"status": status, "metadata": metadata, "hasPortNumber": hasPortNumber}
+
+	except urllib2.HTTPError, e:
+		Log('Error, HTTPError = ' + str(e.code))
+		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber}
+
+	except urllib2.URLError, e:
+		Log('Error, URLError: ' + str(e.reason))
+		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber}
+
+	except Exception, err:
+		Log('Error: ' + str(err))
+		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber}
+#----------------------------------------------------------------  
+#	Hilfsfunktionen für getStreamMeta
+#----------------------------------------------------------------  
+def parse_headers(response):
+	headers = {}
+	int = 0
+	while True:
+		line = response.readline()
+		if line == '\r\n':
+			break  # end of headers
+		if ':' in line:
+			key, value = line.split(':', 1)
+			headers[key] = value.rstrip()
+		if int == 12:
+			break;
+		int = int + 1
+	return headers
+#---------------------------------------------------
+def getHeaders(response):
+	if is_empty(response.headers.dict) is False:
+		headers = response.headers.dict
+	elif hasattr(response.info(),"item") and is_empty(response.info().item()) is False:
+		headers = response.info().item()
+	else:
+		headers = parse_headers(response)
+	return headers
+#---------------------------------------------------
+def is_empty(any_structure):
+	if any_structure:
+		return False
+	else:
+		return True       
+#----------------------------------------------------------------  
+def stripTags(text):
+	finished = 0
+	while not finished:
+		finished = 1
+		start = text.find("<")
+		if start >= 0:
+			stop = text[start:].find(">")
+			if stop >= 0:
+				text = text[:start] + text[start + stop + 1:]
+				finished = 0
+	return text
+#----------------------------------------------------------------  
+def shoutcastCheck(response, headers, itsOld):
+	if itsOld is not True:
+		if 'icy-br' in headers:
+			bitrate = headers['icy-br']
+			bitrate = bitrate.rstrip()
+		else:
+			bitrate = None
+
+		if 'icy-metaint' in headers:
+			icy_metaint_header = headers['icy-metaint']
+		else:
+			icy_metaint_header = None
+
+		if "Content-Type" in headers:
+			contenttype = headers['Content-Type']
+		elif 'content-type' in headers:
+			contenttype = headers['content-type']
+			
+	else:
+		if 'icy-br' in headers:
+			bitrate = headers['icy-br'].split(",")[0]
+		else:
+			bitrate = None
+		if 'icy-metaint' in headers:
+			icy_metaint_header = headers['icy-metaint']
+		else:
+			icy_metaint_header = None
+
+	if headers.get('Content-Type') is not None:
+		contenttype = headers.get('Content-Type')
+	elif headers.get('content-type') is not None:
+		contenttype = headers.get('content-type')
+
+	if icy_metaint_header is not None:
+		metaint = int(icy_metaint_header)
+		print "icy metaint: " + str(metaint)
+		read_buffer = metaint + 255
+		content = response.read(read_buffer)
+
+		start = "StreamTitle='"
+		end = "';"
+
+		try: 
+			title = re.search('%s(.*)%s' % (start, end), content[metaint:]).group(1)
+			title = re.sub("StreamUrl='.*?';", "", title).replace("';", "").replace("StreamUrl='", "")
+			title = re.sub("&artist=.*", "", title)
+			title = re.sub("http://.*", "", title)
+			title.rstrip()
+		except Exception, err:
+			print "songtitle error: " + str(err)
+			title = content[metaint:].split("'")[1]
+
+		return {'song': title, 'bitrate': bitrate, 'contenttype': contenttype.rstrip()}
+	else:
+		print
+		"No metaint"
+		return False
+#---------------------------------------------------
+
+		

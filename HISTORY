@@ -2,6 +2,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------		
 
+25.09.2017	0.1.7	Streamauswertung verbessert: Auswertung der Metadaten für Shoutcast, Icecast/Radionomy
+			und Streammachine.	
 24.09.2017	0.1.6	Suche hinzugefügt (Funktion Search, mehrteilige Suchbegiffe ermöglicht).
 			Funktionen Rubriken/get_details: Auswertung Bitrate hinzugefügt, Ausgabe in tagline.
 			Funktion StationList: Fehler "keinen Stream gefunden" abgefangen.
