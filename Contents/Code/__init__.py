@@ -11,8 +11,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.1.7'		
-VDATE = '25.09.2017'
+VERSION =  '0.1.8'		
+VDATE = '26.09.2017'
 
 # 
 #	
@@ -45,6 +45,9 @@ ICON_UPDATER_NEW 		= 'plugin-update-new.png'
 ART    	= 'art-default.jpg'
 ICON   	= 'icon-default.jpg'
 NAME	= 'TuneIn2017'
+MENU_ICON =  	{'menu-lokale.png', 'menu_kuerzlich.png', 'menu-trend.png', 'menu-musik.png', 
+					'menu-sport.png', 'menu-news.png', 'menu-talk.png', 'menu-audiobook.png', 'menu-pod.png', 
+				}
 
 ROOT_URL = 'http://opml.radiotime.com/Browse.ashx?formats=mp3,aac'
 USER_URL = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
@@ -132,10 +135,11 @@ def Main():
 	for rubrik in rubriken:							# bitrate hier n.b.
 		typ,local_url,text,image,key,subtext,bitrate= get_details(line=rubrik)	# xml extrahieren
 		text = text.decode(encoding="utf-8", errors="ignore")
-		subtext = subtext.decode(encoding="utf-8", errors="ignore")
+		subtext = subtext.decode(encoding="utf-8", errors="ignore")	
+		thumb = getMenuIcon(key)
 		oc.add(DirectoryObject(
 			key = Callback(Rubriken, url=local_url, title=text, image=image),
-			title = text, summary=subtext, thumb = R(ICON) 
+			title = text, summary=subtext, thumb = R(thumb) 
 		))   
 		       
 #-----------------------------	# Updater-Modul einbinden:
@@ -174,6 +178,25 @@ def home(oc):										# Home-Button
 	title = 'Home' 	
 	oc.add(DirectoryObject(key=Callback(Main),title=title, summary=title, tagline=NAME, thumb=R('home.png')))
 	return oc
+#-----------------------------	
+def getMenuIcon(key):	# gibt zum key passendes Icon aus MENU_ICON zurück
+	icon = ICON			# Fallback
+	for icon in MENU_ICON:
+		if key == 'local':
+			icon = 'menu-lokale.png'
+		elif key == 'music':
+			icon = 'menu-musik.png'
+		elif key == 'talk':
+			icon = 'menu-talk.png'
+		elif key == 'sports':
+			icon = 'menu-sport.png'
+		elif key == 'location':
+			icon = 'menu-orte.png'
+		elif key == 'language':
+			icon = 'menu-sprachen.png'
+		elif key == 'podcast':
+			icon = 'menu-talk.png'
+	return icon	
 #-----------------------------
 @route(PREFIX + '/Search')
 def Search(query=None):
@@ -350,6 +373,7 @@ def get_pls(url):               # Playlist holen
 		if url.endswith('.pls'):
 			break
 
+	pls=''
 	try:
 		# pls = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>
 		req = urllib2.Request(url)
@@ -364,7 +388,6 @@ def get_pls(url):               # Playlist holen
 		msgH = L('Fehler'); msg = error_txt
 		msg =  msg.decode(encoding="utf-8", errors="ignore")
 		Log(msg)
-		Log(pls)
 		   
 	Log(pls)
 	return pls
