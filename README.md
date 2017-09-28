@@ -31,9 +31,9 @@ Credits:
  
 Bilder / Pictures:
 ===================  
-![img](https://us.v-cdn.net/6025034/uploads/editor/61/149vbez7i6zx.png)
+![img](https://us.v-cdn.net/6025034/uploads/editor/hy/jyaouszw3kgg.png)
 
-![img])https://us.v-cdn.net/6025034/uploads/editor/wr/9d299awck10x.png)
+![img](https://us.v-cdn.net/6025034/uploads/editor/wr/9d299awck10x.png)
 
 ![img](https://us.v-cdn.net/6025034/uploads/editor/o3/mru0m2pe6lfn.png)
 

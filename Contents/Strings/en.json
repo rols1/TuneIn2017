@@ -3,6 +3,7 @@
 	"Meine Favoriten": "My Favorits",
 	"Meine Stationen": "My Stations",
 	"Suche nach: ": "Search for: ",
+	"Keine Suchergebnisse für ": "No results for ",
 	"Fehler": "Error",
 	 "neues Update vorhanden": "new Update available",
 	 "jetzt installieren": "install now",
@@ -15,5 +16,6 @@
 	 "Bitte die Update-Anzeige abschalten": "Please deselect the Plugin-Notification",
 	 "Bitte Username überprüfen": "Please check username",
 	 "keinen Stream gefunden zu: ":"no stream found for: ",
-	 " nicht gefunden": " not found"
+	 " nicht gefunden": " not found",
+	 "Mehr...":  "More...",
 }

@@ -3,6 +3,7 @@
 	"Meine Favoriten": "Meine Favoriten",
 	"Meine Stationen": "My Stations",
 	"Suche nach: ": "Suche nach: ",
+	"Keine Suchergebnisse für ": "Keine Suchergebnisse für ",
 	"Fehler": "Fehler",
 	 "neues Update vorhanden - jetzt installieren": "neues Update vorhanden - jetzt installieren",
 	 "Update abbrechen": "Update abbrechen",
@@ -14,5 +15,6 @@
 	 "Bitte die Update-Anzeige abschalten": "Bitte die Update-Anzeige abschalten",
 	 "Bitte Username überprüfen": "Bitte Username überprüfen",
 	 "keinen Stream gefunden zu: ":"keinen Stream gefunden zu: ",
-	 " nicht gefunden": " nicht gefunden"
+	 " nicht gefunden": " nicht gefunden",
+	 "Mehr...":  "Mehr...",
 }
