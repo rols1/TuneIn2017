@@ -2,7 +2,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------		
 
-
+01.10.2017	0.2.9	Funktion get_pls: nicht belegte header-Variable entfernt.
+			Sprach-Korrekturen: de.json, en.json + Main().
 01.10.2017	0.2.8	Integration Tunein-eigenen mp3-Hinweis auf inkompatiblen Stream	(CreateTrackObject,
 			PlayAudio, Verzeichnis Ressources).
 not on github	0.2.7	Auswertung m3u8-Links verbessert (berücksichtigt mehr Varianten): zusätzl. Funktion 

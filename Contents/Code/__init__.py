@@ -12,7 +12,7 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.2.8'		
+VERSION =  '0.2.9'		
 VDATE = '01.10.2017'
 
 # 
@@ -112,7 +112,7 @@ def Main():
 			
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 
-	oc.add(InputDirectoryObject(key=Callback(Search), title=u'%s' % L('Suche'), prompt=u'%s' % L('Search Video'), 
+	oc.add(InputDirectoryObject(key=Callback(Search), title=u'%s' % L('Suche'), prompt=u'%s' % L('Suche Station / Titel'), 
 		thumb=R(ICON_SEARCH)))
 		
 	username = Prefs['username']	
@@ -434,7 +434,7 @@ def get_pls(url):               # Playlist holen
 		
 	if pls == '':							# 2. Versuch
 		try:
-			req = urllib2.Request(url, headers)
+			req = urllib2.Request(url)
 			ret = urllib2.urlopen(req)
 			pls = ret.read()	
 			Log(pls[:10])
