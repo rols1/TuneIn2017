@@ -4,8 +4,8 @@ tunein.com-Plugin für den Plex Media Server
 
 Download aktuelle Version: https://github.com/rols1/TuneIn2017/releases
 
-#### Rückmeldungen im Plex-Forum willkommen: https://forums.plex.tv/discussion/288260/tunein2017
-direkt: rols1@gmx.de 
+#### Rückmeldungen willkommen / Feedeback welcome: https://forums.plex.tv/discussion/288260/tunein2017
+EMail: rols1@gmx.de 
   
 #### Funktionen (getestet in Chrome, OpenPHT, Plex Media Player)
 

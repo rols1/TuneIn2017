@@ -12,8 +12,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.2.5'		
-VDATE = '28.09.2017'
+VERSION =  '0.2.8'		
+VDATE = '01.10.2017'
 
 # 
 #	
@@ -285,10 +285,10 @@ def Rubriken(url, title, image):
 #	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
 #	2. Test Inhalt von Tune.ashx auf Playlist-Datei (.pls) - Details siehe get_pls
 #	3. Behandlung der url-Liste:
-#		3.1. falls .m3u8-Datei: Inhalt laden
+#		3.1. falls .m3u8-Datei: Inhalte laden, verketten, Doppler entfernen
 #		3.2. Streamlinks der einzelnen Playlist-Einträge extrahieren
-#		3.3. Behandlung von Sonderfällen, Metaden div. Streamingdienste (getStreamMeta)
-#	4. Doppler in der url-Liste entfernen
+#		3.3. Behandlung von Sonderfällen, Metaden div. Streamingdienste (getStreamMeta - zeitaufwendig) 
+#	4. letzte Doppler in der url-Liste entfernen
 #	5. Aufbau des TrackObjects mit den einzelnen Url's der Liste
 #
 @route(PREFIX + '/StationList')
@@ -307,31 +307,50 @@ def StationList(url, title, image, summ, typ, bitrate):
 	if client.find ('Plex Home Theater'): # PHT verweigert TrackObject bei vorh. DirectoryObject
 		oc = home(oc)					
 		
-	cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
-	# Log(cont)
-	Log(len(cont))
-	Log(cont[:100])
-	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist				
+	if 'No compatible stream' in summ or 'Does not stream' in summ: 	 # Kennzeichnung + mp3 von TuneIn 
+		url = R('notcompatible.enUS.mp3') # Bsp. 106.7 | Z106.7 Jackson
+		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image))
+		return oc
+		
+	try:
+		cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
+		Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
+	except Exception as exception:			
+			error_txt = 'Servermessage: ' + str(exception) 
+			error_txt = error_txt + '\r\n' + url
+			cont = ''
+	if cont == '':
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		return ObjectContainer(header=L('Fehler'), message=error_txt)
+		
+	Log('Tune.ashx_content: ' + cont)
+		
+	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist (.pls, .m3u)				
 		cont = get_pls(cont)
 		if cont.startswith('Servermessage'): 						# Bsp. Rolling Stones by Radio UNO Digital, pls-Url: 
 			cont = cont.decode(encoding="utf-8", errors="ignore")	# http://radiounodigital.com/Players-Tunein/rollingstones.pls
 			return ObjectContainer(header=L('Fehler'), message=cont)
 	
+	# if line.endswith('.m3u'):				# ein oder mehrere .m3u-Links
+	if '.m3u' in cont:						# auch das: ..playlist/newsouth-wusjfmmp3-ibc3.m3u?c_yob=1970&c_gender..
+		cont = get_m3u(cont)
+		Log('m3u-cont: ' + cont)
+		if cont == '':
+			msg=L('keinen Stream gefunden zu: ') 
+			message="%s %s" % (msg, title)
+			return ObjectContainer(header=L('Fehler'), message=message)
+
 	lines = cont.splitlines()
 	err_flag = False; err=''					# Auswertung nach Schleife	
 	url_list = []
 	for line in lines:
 		Log('line: ' + line)
 		url = line
-		# if line.endswith('.m3u'):				# ein oder mehrere .m3u-Links
-		if '.m3u' in line:						# auch das: ..playlist/newsouth-wusjfmmp3-ibc3.m3u?c_yob=1970&c_gender..
-			url = HTTP.Request(line).content	# i.d.R. nur ein Direktlink, Bsp. http://absolut.hoerradar.de/..
-			url = url.strip()
-			Log(url)
+
 		if '=http' in line:						# Playlist-Eintrag, Bsp. File1=http://195.150.20.9:8000/..
 			url = line.split('=')[1]
 			Log(url)
-			
+
 		if url.startswith('http'):			
 			ret = getStreamMeta(url)			# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
 			st = ret.get('status')				# 	http://217.198.148.101:80/
@@ -437,6 +456,34 @@ def get_pls(url):               # Playlist holen
 	return pls
     
 #-----------------------------
+def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werden zusammengelegt,
+	Log('get_m3u: ' + url)		#	Details holt getStreamMeta
+	urls =url.splitlines()	
+	
+	m3u_cont = ''
+	for url in urls:	
+		if url.startswith('http') and url.endswith('.m3u'):		
+			try:									
+				req = HTTP.Request(url).content 	
+			except: 	
+				req=''
+			m3u_cont = m3u_cont + req			# m3u-Inhalt anhängen
+		
+	pls=''; 
+	lines =m3u_cont.splitlines()	
+	for line in lines:
+		# Log(line)
+		if line.startswith('http'):			# skip #EXTM3U, #EXTINF, .. / Links sammeln
+			pls = pls + line + '|'	
+				 	
+	pls =pls.split('|')	
+	lines = repl_dop(pls)					# häufig identische Links in verschiedenen m3u8-Inhalten, 
+	pls = '\n'.join(lines) # 				# Coolradio Jazz: coolradio1-48.m3u, coolradio1-128.m3u, coolradio1-hq.m3u
+	pls = pls.strip()
+	Log(pls[:100])
+	return pls
+    
+#-----------------------------
 def get_details(line):		# xml mittels Stringfunktionen extrahieren 
 	# Log('get_details')
 	typ='';local_url='';text='';image='';key='';subtext='';
@@ -530,14 +577,17 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
 		ret = urllib2.urlopen(req, context=gcontext)
 		Log('PlayAudio: %s | %s' % (str(ret.code), url))
-	except Exception as exception:			# selten, da StationList leere Url-Listen abfängt
-		error_txt = 'Servermessage: ' + str(exception)
-		error_txt = error_txt + '\r\n' + url			 			 	 
-		msgH = L('Fehler'); msg = error_txt
+	except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
+		error_txt = 'Servermessage: ' + str(exception) 	# La Red21.FM Rolling Stones Radio, url:
+		error_txt = error_txt + '\r\n' + url			# http://server-uk4.radioseninternetuy.com:9528/;	 			 	 
+		msgH = L('Fehler'); msg = error_txt				# Textausgabe: 	This station is suspended, if...
 		msg =  msg.decode(encoding="utf-8", errors="ignore")
 		Log(msg)
 		# return ObjectContainer(header=msgH, message=msg) # Framework fängt ab - keine Ausgabe
-		url=GetLocalUrl()				# lokale mp3-Nachricht,  s.u.	
+		if 'notcompatible.enUS.mp3' in url:
+			url = R('notcompatible.enUS.mp3')	# Kennzeichnung + mp3 von TuneIn 
+		else:
+			url=GetLocalUrl()					# lokale mp3-Nachricht,  s.u. GetLocalUrl	
 		
 	return Redirect(url)
 

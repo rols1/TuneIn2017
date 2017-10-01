@@ -3,18 +3,23 @@ CHANGE HISTORY 	TuneIn2017
 --------------		
 
 
+01.10.2017	0.2.8	Integration Tunein-eigenen mp3-Hinweis auf inkompatiblen Stream	(CreateTrackObject,
+			PlayAudio, Verzeichnis Ressources).
+not on github	0.2.7	Auswertung m3u8-Links verbessert (berücksichtigt mehr Varianten): zusätzl. Funktion 
+			get_m3u.
+not on github	0.2.6	UnicodeDecodeError beim Laden der Tune.ashx abgefangen (StationList).
 28.09.2017	0.2.5	get_pls: 2-Schrittverfahren für Playlist-Request (1. HTTP.Request, 2. urllib2.Request) -
 			Grund: urllib2.Request allein schlug (selten) fehl.
-not github	0.2.4	Funktion Search: leere Suchergebnisse abgefangen.			
-not github	0.2.3	Tests mit problematisch kodierten Metadaten (Bsp. in StationList) - song-Ermittlung mit
+not on github	0.2.4	Funktion Search: leere Suchergebnisse abgefangen.			
+not on github	0.2.3	Tests mit problematisch kodierten Metadaten (Bsp. in StationList) - song-Ermittlung mit
 			try abgefangen. json.dumps für metadata wieder entfernt (half hier nicht).
 			Bitrate + song aus Metadaten verwendet für summary, falls vorhanden.
-			ID3-Tags in Metadaten verwerfen - Grund: selten, zusätzl. Code erforderlich. 
-not github	0.2.2	Abfangen HTTP-Error beim Laden von Playlisten (Funktionen get_pls/StationList).
-not github	0.2.1	Lokale mp3-Nachrichten in Exception-Behandlung von PlayAudio integriert:
-			not_available_en.mp3 + not_available_de.mp3 (Verz. ../Contents/Resources)
-not github	0.2.0	Fehler Funktion StationList: json.dumps für metadata fehlte.
-not github	0.1.9	Kennzeichnung in Rubrik-Liste (Stationen + Bitrate, Mehr...). 
+			ID3-Tags in Metadaten verworfen - Grund: selten, zusätzl. Code erforderlich. 
+not on github	0.2.2	Abfangen HTTP-Error beim Laden von Playlisten (Funktionen get_pls/StationList).
+not on github	0.2.1	Lokale mp3-Nachrichten in Exception-Behandlung von PlayAudio integriert:
+			not_available_en.mp3 + not_available_de.mp3 (Verz. ../Contents/Resources).
+not on github	0.2.0	Fehler Funktion StationList: json.dumps für metadata fehlte.
+not on github	0.1.9	Kennzeichnung in Rubrik-Liste (Stationen + Bitrate, Mehr...). 
 			
 26.09.2017	0.1.8	Neuer Icon-Satz mit den TuneIn-Motiven für Hauptmenü.	
 25.09.2017	0.1.7	Streamauswertung verbessert: Auswertung der Metadaten für Shoutcast, Icecast/Radionomy
