@@ -2,6 +2,13 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------		
 
+04.10.2017	0.3.1	Funktionen Main + Rubriken: Austausch HTTP.Request gegen urllib2.Request - damit wirkt der 
+			Language-Wert im Header korrekt auf die Tunein-Ausgabe. DefaultPrefs.json entsprechend angepasst, 
+			Bsp. "German/de/de-DE".	
+			DefaultPrefs.json: Unterstriche aus Bezeichnern entfernt (führten zum decoding-Error mit simplejson),
+			entspr. Anpassungen im Code.
+not on github	0.3.0	Neue (identische) Icon icon-default.jpg + icon-tunein2017.jpg mit Schriftzug 2017 zur
+			Unterscheidung des vorh. TuneIn-Plugins von solvek im UAS.	
 01.10.2017	0.2.9	Funktion get_pls: nicht belegte header-Variable entfernt.
 			Sprach-Korrekturen: de.json, en.json + Main().
 01.10.2017	0.2.8	Integration Tunein-eigenen mp3-Hinweis auf inkompatiblen Stream	(CreateTrackObject,

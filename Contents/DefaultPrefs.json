@@ -1,6 +1,6 @@
 [
 	{	
-		"id": "pref_info_update",
+		"id": "InfoUpdate",
 		"label": "neues Update beim Start des Plugins anzeigen",
 		"type": "bool",
 		"default": "true"
@@ -15,11 +15,8 @@
 	        "id": "language",
 	        "type": "enum",
 	        "label": "Sprache Plugin / Language Plugin",
-	        "default": "German/de",
+	        "default": "German/de/de-DE",
 	        "values": [
-	            "German/de",
-	            "English/en",
-        	]
+	            "German/de/de-DE", "English/en/en-US"],
         },
-
 ]

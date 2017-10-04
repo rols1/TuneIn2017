@@ -12,8 +12,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.2.9'		
-VDATE = '01.10.2017'
+VERSION =  '0.3.1'		
+VDATE = '04.10.2017'
 
 # 
 #	
@@ -23,7 +23,7 @@ VDATE = '01.10.2017'
 # 	Licensed under MIT License (MIT)
 # 	(previously licensed under GPL 3.0)
 # 	A copy of the License you find here:
-#		https://github.com/rols1/Plex-Plugin-ARDMediathek2016/blob/master/LICENSE.md
+#		https://github.com/rols1/TuneIn2017/blob/master/LICENSE.md
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
 # INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
@@ -70,9 +70,11 @@ def Start():
 	
 def ValidatePrefs():	# Locale-Probleme s. https://forums.plex.tv/discussion/126807/another-localization-question
 	try:
-		loc = Prefs['language'].split('/')[1]
+		loc 		= Prefs['language'].split('/')[1]
+		loc_browser = Prefs['language'].split('/')[2]
 	except:
-		loc = 'en-us'
+		loc 		= 'en-us'
+		loc_browser = 'en-US'
 	if Core.storage.file_exists(Core.storage.abs_path(
 		Core.storage.join_path(
 			Core.bundle_path,
@@ -84,8 +86,10 @@ def ValidatePrefs():	# Locale-Probleme s. https://forums.plex.tv/discussion/1268
 		Locale.DefaultLocale = loc
 	else:
 		Locale.DefaultLocale = 'en-us'
-	Dict['loc'] = loc
+	Dict['loc'] 		= loc
+	Dict['loc_browser'] = loc_browser
 	Log('loc: %s' % loc)
+	Log('loc_browser: %s' % loc_browser)
 
 ####################################################################################################
 @handler(PREFIX, NAME,  art = ART, thumb = ICON)
@@ -126,11 +130,13 @@ def Main():
 			title = my_title, thumb = R(ICON) 
 		))                    
 		
-	loc = str(Dict['loc'])							# ergibt ohne str: u'de
-	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'		# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
-	headers={'Accept-Language': loc}				# z.Z. nicht genutzt - Auswirkung bei TuneIn so nicht sicher
-	# Log(headers)
-	page = HTTP.Request(ROOT_URL, headers=headers).content	# xml-Übersicht Rubriken
+	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
+	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
+	req = urllib2.Request(ROOT_URL)					# xml-Übersicht Rubriken
+	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) # Quelle Language-Werte: Chrome-HAR
+	ret = urllib2.urlopen(req)
+	page = ret.read()
+	
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 	rubriken = blockextract('<outline', page)
 	for rubrik in rubriken:							# bitrate hier n.b.
@@ -147,7 +153,7 @@ def Main():
 	
 	repo_url = 'https://github.com/{0}/releases/'.format(GITHUB_REPOSITORY)
 	call_update = False
-	if Prefs['pref_info_update'] == True:				# Hinweis auf neues Update beim Start des Plugins 
+	if Prefs['InfoUpdate'] == True:					# Hinweis auf neues Update beim Start des Plugins 
 		ret = updater.update_available(VERSION)
 		int_lv = ret[0]			# Version Github
 		int_lc = ret[1]			# Version aktuell
@@ -223,11 +229,12 @@ def Search(query=None):
 def Rubriken(url, title, image):
 	Log('Rubriken: ' + url)
 
-	loc = str(Dict['loc'])	
-	Loc = loc + ';q=0.8,en-US;q=0.6,en;q=0.4'		# prio für Auswahl, Rest Fallback (Quelle: Chrome-HAR)
-	headers=''	# {'Accept-Language': loc}			# z.Z. nicht genutzt - Auswirkung bei TuneIn nicht sicher
-	# Log(headers)
-	page = HTTP.Request(url, headers=headers).content	# xml-Übersicht Rubriken
+	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
+	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
+	req = urllib2.Request(url)					# xml-Übersicht Rubriken
+	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) # Quelle Language-Werte: Chrome-HAR
+	ret = urllib2.urlopen(req)
+	page = ret.read()	
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 		
 	status  = stringextract('<status>', '</status>', page)
@@ -252,12 +259,12 @@ def Rubriken(url, title, image):
 	oc = home(oc)
 	
 	for rubrik in rubriken:
-		#Log(rubrik)
+		# Log(rubrik)
 		typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
 		# Log(local_url)
 		# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
 		# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
-		
+
 		text = text.decode(encoding="utf-8", errors="ignore")
 		subtext = subtext.decode(encoding="utf-8", errors="ignore")
 		
@@ -276,7 +283,7 @@ def Rubriken(url, title, image):
 			oc.add(DirectoryObject(
 				key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
 				title = text, summary=subtext,  tagline=tagline, thumb = image 
-			))                    
+			))  
 
 	return oc
 
@@ -316,7 +323,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 		cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
 		Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
 	except Exception as exception:			
-			error_txt = 'Servermessage: ' + str(exception) 
+			error_txt = 'Servermessage1: ' + str(exception) 
 			error_txt = error_txt + '\r\n' + url
 			cont = ''
 	if cont == '':
@@ -439,7 +446,7 @@ def get_pls(url):               # Playlist holen
 			pls = ret.read()	
 			Log(pls[:10])
 		except Exception as exception:	
-			error_txt = 'Servermessage: ' + str(exception)
+			error_txt = 'Servermessage2: ' + str(exception)
 			error_txt = error_txt + '\r\n' + url
 			pls=error_txt
 			return pls	
@@ -448,7 +455,7 @@ def get_pls(url):               # Playlist holen
 		try:
 			pls = HTTP.Request(pls).content # Bsp. [playlist] File1=http://195.150.20.9:8000/rmf_baby
 		except Exception as exception:	
-			error_txt = 'Servermessage: ' + str(exception)
+			error_txt = 'Servermessage3: ' + str(exception)
 			error_txt = error_txt + '\r\n' + url
 			pls=error_txt
 				 			 	 		   
@@ -578,7 +585,7 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 		ret = urllib2.urlopen(req, context=gcontext)
 		Log('PlayAudio: %s | %s' % (str(ret.code), url))
 	except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
-		error_txt = 'Servermessage: ' + str(exception) 	# La Red21.FM Rolling Stones Radio, url:
+		error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
 		error_txt = error_txt + '\r\n' + url			# http://server-uk4.radioseninternetuy.com:9528/;	 			 	 
 		msgH = L('Fehler'); msg = error_txt				# Textausgabe: 	This station is suspended, if...
 		msg =  msg.decode(encoding="utf-8", errors="ignore")
