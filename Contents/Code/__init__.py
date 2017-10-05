@@ -12,8 +12,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.1'		
-VDATE = '04.10.2017'
+VERSION =  '0.3.2'		
+VDATE = '05.10.2017'
 
 # 
 #	
@@ -68,10 +68,16 @@ def Start():
 	
 	ValidatePrefs()
 	
-def ValidatePrefs():	# Locale-Probleme s. https://forums.plex.tv/discussion/126807/another-localization-question
+# Locale-Probleme 	s. https://forums.plex.tv/discussion/126807/another-localization-question,
+#					https://forums.plex.tv/discussion/143342/non-ascii-characters-in-translations
+#	Bis zur praktikablen Lösung vermeide ich deutsche Sonderzeichen (Bsp. Durchstoebern)
+def ValidatePrefs():	
+	lang = Prefs['language'].split('/')
 	try:
-		loc 		= Prefs['language'].split('/')[1]
-		loc_browser = Prefs['language'].split('/')[2]
+		loc 		= str(lang[1])		# de
+		loc_browser = loc
+		if len(lang) == 3:
+			loc_browser = str(lang[2])	# de-DE - Konkretisierung, falls vorhanden
 	except:
 		loc 		= 'en-us'
 		loc_browser = 'en-US'
@@ -219,7 +225,7 @@ def Search(query=None):
 	oc = Rubriken(url=url, title=oc_title2, image=R(ICON_SEARCH))
 	
 	if len(oc) == 1:
-		title = 'Keine Suchergebnisse für '
+		title = 'Keine Suchergebnisse zu '
 		title = title.decode(encoding="utf-8", errors="ignore")
 		title = L(title) + '>%s<' % query
 		oc.add(DirectoryObject(key=Callback(Main),title=title, summary='Home', tagline=NAME, thumb=R(ICON_CANCEL)))
@@ -242,8 +248,7 @@ def Rubriken(url, title, image):
 		oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 		title = title.decode(encoding="utf-8", errors="ignore")
 		title = L('Fehler') + ' | ' + 'tuneIn-Status: 400'
-		summary = 'Bitte Username überprüfen'
-		summary = summary.decode(encoding="utf-8", errors="ignore")
+		summary = 'Problem mit username'		
 		summary = L(summary)
 		oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, thumb=R(ICON_CANCEL)))
 		return oc			
