@@ -12,8 +12,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.2'		
-VDATE = '05.10.2017'
+VERSION =  '0.3.3'		
+VDATE = '07.10.2017'
 
 # 
 #	
@@ -70,7 +70,9 @@ def Start():
 	
 # Locale-Probleme 	s. https://forums.plex.tv/discussion/126807/another-localization-question,
 #					https://forums.plex.tv/discussion/143342/non-ascii-characters-in-translations
-#	Bis zur praktikablen Lösung vermeide ich deutsche Sonderzeichen (Bsp. Durchstoebern)
+#					Die Lösung von czukowski (eigene L-Funktion) funktioniert + wird hier verwendet:
+#						https://forums.plex.tv/discussion/comment/838061/#Comment_838061
+#						Bsp. de.json-String: "Durchstoebern": "Durchstöbern" (Umlaute nur im 2. Teil!)
 def ValidatePrefs():	
 	lang = Prefs['language'].split('/')
 	try:
@@ -180,7 +182,7 @@ def Main():
 	if call_update == False:							# Update-Button "Suche" zeigen	
 		title = 'Plugin-Update | Version: ' + VERSION + ' - ' + VDATE	
 		summary=L('Suche nach neuen Updates starten')
-		tagline=L('Bezugsquelle: ') + repo_url			
+		tagline=L('Bezugsquelle') + ': ' + repo_url			
 		oc.add(DirectoryObject(key=Callback(SearchUpdate, title='Plugin-Update'), 
 			title=title, summary=summary, tagline=tagline, thumb=R(ICON_MAIN_UPDATER)))
 	return oc
@@ -214,8 +216,8 @@ def getMenuIcon(key):	# gibt zum key passendes Icon aus MENU_ICON zurück
 @route(PREFIX + '/Search')
 def Search(query=None):
 	Log('Search: ' + str(query))
-	oc_title2 = L('Suche nach: ')
-	oc_title2 = oc_title2 + query.decode(encoding="utf-8", errors="ignore")
+	oc_title2 = L('Suche nach')
+	oc_title2 = oc_title2 + ' ' + query.decode(encoding="utf-8", errors="ignore")
 	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
 	
@@ -225,9 +227,9 @@ def Search(query=None):
 	oc = Rubriken(url=url, title=oc_title2, image=R(ICON_SEARCH))
 	
 	if len(oc) == 1:
-		title = 'Keine Suchergebnisse zu '
+		title = 'Keine Suchergebnisse zu'
 		title = title.decode(encoding="utf-8", errors="ignore")
-		title = L(title) + '>%s<' % query
+		title = L(title) + ' >%s<' % query
 		oc.add(DirectoryObject(key=Callback(Main),title=title, summary='Home', tagline=NAME, thumb=R(ICON_CANCEL)))
 	return oc
 #-----------------------------
@@ -248,7 +250,7 @@ def Rubriken(url, title, image):
 		oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 		title = title.decode(encoding="utf-8", errors="ignore")
 		title = L('Fehler') + ' | ' + 'tuneIn-Status: 400'
-		summary = 'Problem mit username'		
+		summary = 'Username ueberpruefen'		
 		summary = L(summary)
 		oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, thumb=R(ICON_CANCEL)))
 		return oc			
@@ -348,7 +350,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 		cont = get_m3u(cont)
 		Log('m3u-cont: ' + cont)
 		if cont == '':
-			msg=L('keinen Stream gefunden zu: ') 
+			msg=L('keinen Stream gefunden zu') 
 			message="%s %s" % (msg, title)
 			return ObjectContainer(header=L('Fehler'), message=message)
 
@@ -410,7 +412,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 	if len(url_list) == 0:
 		if err_flag == True:					# detaillierte Fehlerausgabe vorziehen, aber nur bei leerer Liste
 			return ObjectContainer(header=L('Fehler'), message=err)
-		msg=L('keinen Stream gefunden zu: ') 
+		msg=L('keinen Stream gefunden zu') 
 		message="%s %s" % (msg, title)
 		return ObjectContainer(header=L('Fehler'), message=message)
 
@@ -647,7 +649,7 @@ def SearchUpdate(title):		#
 			#key = Callback(updater.menu, title='Update Plugin'), 
 			key = Callback(Main), 
 			title = 'Plugin up to date | Home',
-			summary = 'Plugin Version ' + VERSION + L(' ist die neueste Version'),
+			summary = 'Plugin Version ' + VERSION + ' ' + L('ist die neueste Version'),
 			tagline = cleanhtml(summ),
 			thumb = R(ICON_OK)))
 			
@@ -719,6 +721,10 @@ def repl_dop(liste):	# Doppler entfernen, im Python-Script OK, Problem in Plex -
 	mylist.sort()
 	return mylist
 #----------------------------------------------------------------  
+def L(string):		# s. Start(), Locale-Probleme
+	local_string = Locale.LocalString(string)
+	return str(local_string).decode()
+#----------------------------------------------------------------
 ####################################################################################################
 #									Streamtest-Funktionen
 ####################################################################################################

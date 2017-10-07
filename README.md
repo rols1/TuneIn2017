@@ -13,10 +13,15 @@ EMail: rols1@gmx.de
 
 INSTALLATION:
 ===================  
-- (german) Lade die zip-Datei aus dem Releaseverzeichnis herunter und kopiere den ausgepackten bundle-Ordner in das Plug-Ins-Verzeichnis des Plex Media Servers.
-- (english) Download the zip-File from the release-Link, unzip it and copy the bundle into the Plug-Ins folder on the computer running Plex Media Server.
-- Restart Plex Media Server
-- Plug-Ins-Verzeichnis: https://support.plex.tv/hc/en-us/articles/201106098
+* via [WebTools.bundle](https://github.com/dagalufh/WebTools.bundle) or manually follow the directions below.
+* (**german**) Lade die zip-Datei aus dem [Releaseverzeichnis](https://github.com/rols1/TuneIn2017/releases) herunter und kopiere den ausgepackten bundle-Ordner in das Plug-Ins-Verzeichnis des Plex Media Servers.
+* (**english**) Download the zip-File from the [release-Link](https://github.com/rols1/TuneIn2017/releases), unzip it and copy the bundle into the Plug-Ins folder on the computer running Plex Media Server.
+* Restart Plex Media Server
+* [Plug-Ins-Verzeichnis](https://support.plex.tv/hc/en-us/articles/201106098) / [How do I find the Plug-Ins folder?](https://support.plex.tv/hc/en-us/articles/201106098)
+
+Want to help translate this plugin?
+===================  
+https://poeditor.com/join/project/SKrMQklJVu
 
 UPDATES:
 ===================  

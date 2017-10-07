@@ -21,9 +21,9 @@ def get_latest_version():
 		summary = cleanSummary((release_feed_data.entries[0].content[0]))
 		Log(link); Log(tags); Log(tag); # Log(summary); 
 		return (release_feed_data.entries[0].title, summary, tag)
-	except Exception as exception:
+	except Exception as exception:									# Github-Problem
 		#Log.Error('Checking for new releases failed: {0}'.format(repr(exception)))
-		Log.Error('Suche nach neuen Versionen fehlgeschlagen: {0}'.format(repr(exception)))
+		Log.Error('Suche nach neuen Versionen fehlgeschlagen: {0}'.format(repr(exception))) 
 		return (None, None, None)
 
 ################################################################################
@@ -43,7 +43,7 @@ def update_available(VERSION):
 			Log('Github: ' + latest_version); Log('lokal: ' + current_version); 
 			# Log(int_lv); Log(int_cv)
 			return (int_lv, int_cv, latest_version, summ, tag)
-	except:
+	except:															# Github-Problem
 		pass
 	return (False, None, None, None)
 
