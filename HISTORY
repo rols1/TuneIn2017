@@ -5,6 +5,8 @@ CHANGE HISTORY 	TuneIn2017
 07.10.2017	0.3.3	Nutzung von poeditor.com: Account, Projekt TuneIn2017, Request OpenSource, Basisterms Englisch.
 			Sprachdateien + Code: Doppelpunkte in Strings entfernt (verursachen Probleme bei Verarbeitung mit
 			POEditor).
+			Plugin-interne L-Funktion (Lösung czukowski) integriert für die Wiederverwendung von Umlauten in
+			Sprachstrings.
 05.10.2017	0.3.2	DefaultPrefs.json: Sprachenauswahl erweitert (Afrikaans - Zulu). Plugin-intern ist weiterhin nur
 			die englische Übersetzung vorhanden.
 			Locale-Probleme: Umlaute in de.json + en.json entfernt (bis auf weiteres).	
