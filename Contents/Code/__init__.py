@@ -12,8 +12,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.3'		
-VDATE = '07.10.2017'
+VERSION =  '0.3.4'		
+VDATE = '08.10.2017'
 
 # 
 #	
@@ -254,46 +254,75 @@ def Rubriken(url, title, image):
 		summary = L(summary)
 		oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, thumb=R(ICON_CANCEL)))
 		return oc			
-	
-	rubriken = blockextract('<outline type', page)
-	
+		
 	oc_title2 = stringextract('<title>', '</title>', page)	# Bsp. <title>Frankfurt am Main</title>
 	oc_title2 = unescape(oc_title2)
 	oc_title2 = oc_title2.decode(encoding="utf-8", errors="ignore")
 	
-	key 	= stringextract('key="', '"', page)				# Bsp. key="stations">
 	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
-	
-	for rubrik in rubriken:
-		# Log(rubrik)
-		typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
-		# Log(local_url)
-		# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
-		# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
 
-		text = text.decode(encoding="utf-8", errors="ignore")
-		subtext = subtext.decode(encoding="utf-8", errors="ignore")
+	outline_text = stringextract('<outline text', '>', page)# Bsp. <outline text="Stations (2)" key="stations">
+	Log('outline_text: ' + outline_text)			
+	outlines = blockextract('<outline text', page)
+	Log(len(outlines))
+	
+	if len(outlines) == 0:								# Normalausgabe ohne Gliederung, Bsp. alle type="link" 
+		outlines = blockextract('<body>', page)
+	Log(len(outlines))		
 		
-		if typ == 'link':									# bitrate hier n.b.
-			oc.add(DirectoryObject(
-				key = Callback(Rubriken, url=local_url, title=text, image=image),
-				title = text, summary=subtext, tagline=L('Mehr...'), thumb = image 
-			)) 
-                 
-		if typ == 'audio':
-			tagline = ''
-			if bitrate:											# möglich: keine Angabe (stream_type="download")
-				tagline = 'Station | Bitrate: %s KB' % bitrate
-			else:
-				bitrate = '?'									# PHT verträgt '' nicht 
-			oc.add(DirectoryObject(
-				key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
-				title = text, summary=subtext,  tagline=tagline, thumb = image 
-			))  
+	for outline in outlines:
+		key = stringextract('key="', '"', outline)		# Bsp. key="stations"
+		# Log(outline); 
+		Log('outline_key: ' + key)	
+		if key == 'presetUrls':							# CustomUrl's getrennt + komplett behandeln
+			oc = get_presetUrls(oc, outline)
+			continue
+			
+		# if key == 'stations'							# z.Z. nicht nötig, Rest typ=link od. typ=audio
+		rubriken = blockextract('<outline type', outline)	# restliche outlines
+		for rubrik in rubriken:			
+			typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
+			Log(local_url)
+			# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
+			# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
+
+			text = text.decode(encoding="utf-8", errors="ignore")
+			subtext = subtext.decode(encoding="utf-8", errors="ignore")
+			
+			if typ == 'link':									# bitrate hier n.b.
+				oc.add(DirectoryObject(
+					key = Callback(Rubriken, url=local_url, title=text, image=image),
+					title = text, summary=subtext, tagline=L('Mehr...'), thumb = image 
+				)) 
+								 
+			if typ == 'audio':
+				tagline = ''
+				if bitrate:											# möglich: keine Angabe (stream_type="download")
+					tagline = 'Station | Bitrate: %s KB' % bitrate
+				else:
+					bitrate = '?'									# PHT verträgt '' nicht 
+				oc.add(DirectoryObject(
+					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
+					title = text, summary=subtext,  tagline=tagline, thumb = image 
+				))  
 
 	return oc
 
+#-----------------------------
+def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
+	Log('get_presetUrls')
+	rubriken = blockextract('<outline type', outline)	# restliche outlines 
+	for rubrik in rubriken:	 # presetUrls ohne bitrate + subtext, type=link. Behandeln wie typ == 'audio'
+		typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
+		subtext = 'CustomURL'
+		oc.add(DirectoryObject(
+			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
+			title = text, summary=subtext,  tagline=local_url, thumb = image 
+		))  
+	Log(len(oc))	
+	return oc					
+	
 #-----------------------------
 # Auswertung der Streamlinks:
 #	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
@@ -326,18 +355,21 @@ def StationList(url, title, image, summ, typ, bitrate):
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image))
 		return oc
 		
-	try:
-		cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
-		Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
-	except Exception as exception:			
-			error_txt = 'Servermessage1: ' + str(exception) 
-			error_txt = error_txt + '\r\n' + url
-			cont = ''
-	if cont == '':
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-		return ObjectContainer(header=L('Fehler'), message=error_txt)
-		
-	Log('Tune.ashx_content: ' + cont)
+	if 'Tune.ashx?' in url:						# normaler TuneIn-Link zur Playlist o.ä.
+		try:
+			cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
+			Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
+		except Exception as exception:			
+				error_txt = 'Servermessage1: ' + str(exception) 
+				error_txt = error_txt + '\r\n' + url
+				cont = ''
+		if cont == '':
+			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+			return ObjectContainer(header=L('Fehler'), message=error_txt)		
+		Log('Tune.ashx_content: ' + cont)
+	else:										# ev. CustomUrl - key="presetUrls"> - direkter Link zur Streamquelle
+		cont = url
+		Log('custom_content: ' + cont)
 		
 	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist (.pls, .m3u)				
 		cont = get_pls(cont)
@@ -766,8 +798,11 @@ def getStreamMeta(address):
 	user_agent = 'iTunes/9.1.1'
 	request.add_header('User-Agent', user_agent)
 	request.add_header('icy-metadata', 1)
+	gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1) 	# 08.10.2017 SSLContext für https://hr-youfm-live.sslcast.addradio.de
+	gcontext.check_hostname = False
+	
 	try:
-		response = urllib2.urlopen(request, timeout=6)
+		response = urllib2.urlopen(request, context=gcontext, timeout=6)
 		headers = getHeaders(response)
 		   
 		if "server" in headers:
