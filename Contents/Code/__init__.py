@@ -12,7 +12,7 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.4'		
+VERSION =  '0.3.5'		
 VDATE = '08.10.2017'
 
 # 
@@ -316,6 +316,8 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	for rubrik in rubriken:	 # presetUrls ohne bitrate + subtext, type=link. Behandeln wie typ == 'audio'
 		typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
 		subtext = 'CustomURL'
+		bitrate = 'unknown'		# dummy für PHT
+		typ = 'unknown'			# dummy für PHT
 		oc.add(DirectoryObject(
 			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
 			title = text, summary=subtext,  tagline=local_url, thumb = image 

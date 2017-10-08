@@ -2,7 +2,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------		
 
-08.10.2017	0.3.4	Auswertung von ustomUrl's: zusätzl. Funktion get_presetUrls, Anpassung StationList (Filterung
+08.10.2017	0.3.5	get_presetUrls: Ergänzungen für PHT - dummy-Belegung von bitrate + typ.
+08.10.2017	0.3.4	Auswertung von CustomUrl's: zusätzl. Funktion get_presetUrls, Anpassung StationList (Filterung
 			'Tune.ashx?' in Url.
 			getStreamMeta (urllib2.urlopen): SSLContext für https://hr-youfm-live.sslcast.addradio.de hinzugefügt.	
 07.10.2017	0.3.3	Nutzung von poeditor.com: Account, Projekt TuneIn2017, Request OpenSource, Basisterms Englisch.
