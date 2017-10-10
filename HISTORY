@@ -1,7 +1,12 @@
 CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
---------------		
-
+--------------	
+	
+10.10.2017	0.3.8	Renovierung Updater-Modul: Aufsplittung in SearchUpdate + presentUpdate, Github-Quelle 
+			umgestellt auf api-Url + entspr. Anpassungen in updater.py.
+			Integration Sprachdateien Dänisch + Polnisch.
+not on github	0.3.7	Testfunktion für Sprachdateien des Plugins: LangTest + dummy, Flag Lang_Test in Main.			
+not on github	0.3.6	Funktion myL(string): Hardcore-Lösung, falls czukowski-Lösung versagt. 	
 08.10.2017	0.3.5	get_presetUrls: Ergänzungen für PHT - dummy-Belegung von bitrate + typ.
 08.10.2017	0.3.4	Auswertung von CustomUrl's: zusätzl. Funktion get_presetUrls, Anpassung StationList (Filterung
 			'Tune.ashx?' in Url.

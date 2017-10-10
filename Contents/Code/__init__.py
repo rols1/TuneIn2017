@@ -1,6 +1,7 @@
 import urllib			# urllib.quote(), 
 import urllib2			# urllib2.Request
 import ssl				# HTTPS-Handshake
+import os 				# u.a. Behandlung von Pfadnamen
 import random			# Zufallswerte für rating_key
 import sys				# Plattformerkennung
 import re				# u.a. Reguläre Ausdrücke, z.B. in CalculateDuration
@@ -12,8 +13,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.5'		
-VDATE = '08.10.2017'
+VERSION =  '0.3.8'		
+VDATE = '10.10.2017'
 
 # 
 #	
@@ -56,6 +57,8 @@ PREFIX 		= '/music/tunein2017'
 
 REPO_NAME		 	= NAME
 GITHUB_REPOSITORY 	= 'rols1/' + REPO_NAME
+REPO_URL 			= 'https://github.com/{0}/releases/latest'.format(GITHUB_REPOSITORY)
+
 
 ####################################################################################################
 def Start():
@@ -66,6 +69,7 @@ def Start():
 	DirectoryObject.art = R(ART)
 	DirectoryObject.thumb = R(ICON)
 	
+	Dict.Reset()
 	ValidatePrefs()
 	
 # Locale-Probleme 	s. https://forums.plex.tv/discussion/126807/another-localization-question,
@@ -83,20 +87,18 @@ def ValidatePrefs():
 	except:
 		loc 		= 'en-us'
 		loc_browser = 'en-US'
-	if Core.storage.file_exists(Core.storage.abs_path(
-		Core.storage.join_path(
-			Core.bundle_path,
-			'Contents',
-			'Strings',
-			'%s.json' % loc
-		)
-	)):
+	loc_file = Core.storage.abs_path(
+		Core.storage.join_path(Core.bundle_path, 'Contents', 'Strings', '%s.json' % loc))
+	Log(loc_file)		
+	if os.path.exists(loc_file):
 		Locale.DefaultLocale = loc
 	else:
-		Locale.DefaultLocale = 'en-us'
+		Locale.DefaultLocale = 'en-us'	# Fallback
 	Dict['loc'] 		= loc
+	Dict['loc_file'] 	= loc_file
 	Dict['loc_browser'] = loc_browser
 	Log('loc: %s' % loc)
+	Log('loc_file: %s' % loc_file)
 	Log('loc_browser: %s' % loc_browser)
 
 ####################################################################################################
@@ -116,11 +118,9 @@ def Main():
 	Log('Platform.CPU: '+ Platform.CPU)									# dto.
 	Log('Platform.ServerVersion: ' + Platform.ServerVersion)			# dto.
 	
-	Dict.Reset()														# Speicherobjekte des Plugins löschen
-
 	title = 'Durchstoebern'
 	title = title.decode(encoding="utf-8", errors="ignore")
-	title = L(title)
+	title = myL(title)
 			
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 
@@ -157,36 +157,37 @@ def Main():
 			title = text, summary=subtext, thumb = R(thumb) 
 		))   
 		       
-#-----------------------------	# Updater-Modul einbinden:
-	
-	repo_url = 'https://github.com/{0}/releases/'.format(GITHUB_REPOSITORY)
-	call_update = False
-	if Prefs['InfoUpdate'] == True:					# Hinweis auf neues Update beim Start des Plugins 
-		ret = updater.update_available(VERSION)
-		int_lv = ret[0]			# Version Github
-		int_lc = ret[1]			# Version aktuell
-		latest_version = ret[2]	# Version Github, Format 1.4.1
-
-		if ret[0] == False:
-			msgH = L('Fehler'); 
-			msg = L('Github ist nicht errreichbar') +  ' - ' +  L('Bitte die Update-Anzeige abschalten')		
-			return ObjectContainer(header=msgH, message=msg)
-	
-		if int_lv > int_lc:								# Update-Button "installieren" zeigen
-			call_update = True
-			title = L('neues Update vorhanden') +  ' - ' + L('jetzt installieren')
-			summary = 'Plugin Version: ' + VERSION + ', Github Version: ' + latest_version
-			url = 'https://github.com/{0}/releases/download/{1}/{2}.bundle.zip'.format(GITHUB_REPOSITORY, latest_version, REPO_NAME)
-			oc.add(DirectoryObject(key=Callback(updater.update, url=url , ver=latest_version), 
-				title=title, summary=summary, tagline=cleanhtml(summary), thumb=R(ICON_UPDATER_NEW)))
-	if call_update == False:							# Update-Button "Suche" zeigen	
-		title = 'Plugin-Update | Version: ' + VERSION + ' - ' + VDATE	
-		summary=L('Suche nach neuen Updates starten')
-		tagline=L('Bezugsquelle') + ': ' + repo_url			
-		oc.add(DirectoryObject(key=Callback(SearchUpdate, title='Plugin-Update'), 
-			title=title, summary=summary, tagline=tagline, thumb=R(ICON_MAIN_UPDATER)))
+#-----------------------------	
+	oc = SearchUpdate(title=NAME, start='true', oc=oc)	# Updater-Modul einbinden:
+			
+	# Lang_Test=True									# Menü-Test Plugin-Sprachdatei
+	Lang_Test=False		
+	if Lang_Test:
+		oc.add(DirectoryObject(key=Callback(LangTest),title='LangTest', summary='LangTest', thumb=R('lang_gnome.png')))			
+			
 	return oc
 						
+#----------------------------------------------------------------
+@route(PREFIX + '/LangTest')
+def LangTest():										# testet aktuelle Plugin-Sprachdatei, z.B. en.json
+	Log('LangTest')	
+	title = 'LangTest: %s' % Dict['loc'] 
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	de_strings =  Resource.Load('de.csv')			# Basis German de
+	de_strings = de_strings.split('\n')
+	for string in de_strings:
+		string = string.strip()
+		if string:
+			title = string
+			summ = L(title)							# czukowski-Lösung	
+			# summ = myL(title)						# Hardcore-Lösung
+			oc.add(DirectoryObject(key=Callback(dummy),title=title, summary=summ, thumb=R('lang_gnome.png')))
+	return oc
+	
+@route(PREFIX + '/dummy')
+def dummy():
+	return ObjectContainer(header=L('Hinweis'), message='dummy-Funktion OK')
+	
 #----------------------------------------------------------------
 def home(oc):										# Home-Button
 	Log('home')	
@@ -269,6 +270,7 @@ def Rubriken(url, title, image):
 	
 	if len(outlines) == 0:								# Normalausgabe ohne Gliederung, Bsp. alle type="link" 
 		outlines = blockextract('<body>', page)
+		Log('switch_no_structure')
 	Log(len(outlines))		
 		
 	for outline in outlines:
@@ -652,42 +654,66 @@ def GetLocalUrl(): 						# lokale mp3-Nachricht, engl./deutsch - nur für PlayAu
 ####################################################################################################
 
 @route(PREFIX + '/SearchUpdate')
-def SearchUpdate(title):		#
-	oc = ObjectContainer(title2=title, art=ObjectContainer.art)	
-
-	ret = updater.update_available(VERSION)
+def SearchUpdate(title, start, oc=None):		
+	Log('SearchUpdate')
+	
+	if start=='true':									# Aufruf beim Pluginstart
+		if Prefs['InfoUpdate'] == True:					# Hinweis auf neues Update beim Start des Plugins 
+			oc,available = presentUpdate(oc,start)				
+			if 	available == 'true':					# Update präsentieren
+				return oc
+														# Menü Plugin-Update zeigen														
+		title = 'Plugin-Update | Version: ' + VERSION + ' - ' + VDATE 	 
+		summary=L('Suche nach neuen Updates starten')
+		tagline=L('Bezugsquelle') + ': ' + REPO_URL			
+		oc.add(DirectoryObject(key=Callback(SearchUpdate, title='Plugin-Update', start='false'), 
+			title=title, summary=summary, tagline=tagline, thumb=R(ICON_MAIN_UPDATER)))
+		return oc
+		
+	else:					# start=='false', Aufruf aus Menü Plugin-Update
+		oc = ObjectContainer(title2=title, art=ObjectContainer.art)	
+		oc,available = presentUpdate(oc,start)
+		return oc	
+	
+		
+#-----------------------------
+def presentUpdate(oc,start):
+	Log('presentUpdate')
+	ret = updater.update_available(VERSION)			# bei Github-Ausfall 3 x None
 	int_lv = ret[0]			# Version Github
 	int_lc = ret[1]			# Version aktuell
 	latest_version = ret[2]	# Version Github, Format 1.4.1
-	summ = ret[3]			# Plugin-Name
-	tag = ret[4]			# History (last change)
 
-	url = 'https://github.com/{0}/releases/download/{1}/{2}.bundle.zip'.format(GITHUB_REPOSITORY, latest_version, REPO_NAME)
-	Log(latest_version); Log(int_lv); Log(int_lc); Log(url); 
+	if ret[0] == False:
+		msgH = L('Fehler'); 
+		msg = L('Github ist nicht errreichbar') +  ' - ' +  L('Bitte die Update-Anzeige abschalten')		
+		return ObjectContainer(header=msgH, message=msg)
+		
+	zip_url = ret[5]	# erst hier referenzieren, bei Github-Ausfall None
+	url = zip_url
+	summ = ret[3]			# History, replace ### + \r\n in get_latest_version, summ -> summary, 
+	tag = summ.decode(encoding="utf-8", errors="ignore")  # History -> tag
+	Log(latest_version); Log(int_lv); Log(int_lc); Log(tag); Log(zip_url); 
 	
-	if int_lv > int_lc:		# zum Testen drehen (akt. Plugin vorher sichern!)
-		oc.add(DirectoryObject(
-			key = Callback(updater.update, url=url , ver=latest_version), 
-			title = L('neues Update vorhanden - jetzt installieren'),
-			summary = 'Plugin Version: ' + VERSION + ', Github Version ' + latest_version,
-			tagline = cleanhtml(summ),
-			thumb = R(ICON_UPDATER_NEW)))
-			
-		oc.add(DirectoryObject(
-			key = Callback(Main), 
-			title = L('Update abbrechen'),
-			summary = L('weiter im aktuellen Plugin'),
-			thumb = R(ICON_UPDATER_NEW)))
-	else:	
-		oc.add(DirectoryObject(
-			#key = Callback(updater.menu, title='Update Plugin'), 
-			key = Callback(Main), 
-			title = 'Plugin up to date | Home',
-			summary = 'Plugin Version ' + VERSION + ' ' + L('ist die neueste Version'),
-			tagline = cleanhtml(summ),
-			thumb = R(ICON_OK)))
-			
-	return oc	
+	if int_lv > int_lc:								# 2 Update-Button: "installieren" + "abbrechen"
+		available = 'true'
+		title = L('neues Update vorhanden') +  ' - ' + L('jetzt installieren')
+		summary = 'Plugin Version: ' + VERSION + ', Github Version: ' + latest_version
+
+		oc.add(DirectoryObject(key=Callback(updater.update, url=url , ver=latest_version), 
+			title=title, summary=summary, tagline=tag, thumb=R(ICON_UPDATER_NEW)))
+		if start == 'false':						# Option Abbrechen nicht beim Start zeigen
+			oc.add(DirectoryObject(key = Callback(Main), title = L('Update abbrechen'),
+				summary = L('weiter im aktuellen Plugin'), thumb = R(ICON_UPDATER_NEW)))
+	else:											# Plugin aktuell -> Main
+		available = 'false'
+		if start == 'false':						# beim Start unterdrücken
+			oc.add(DirectoryObject(key = Callback(Main), 	
+				title = 'Plugin up to date | Home',
+				summary = 'Plugin Version ' + VERSION + ' ' + L('ist die neueste Version'),
+				tagline = tag, thumb = R(ICON_OK)))			
+
+	return oc,available
 #----------------------------------------------------------------  
 def blockextract(blockmark, mString):  	# extrahiert Blöcke begrenzt durch blockmark aus mString
 	#	blockmark bleibt Bestandteil der Rückgabe - im Unterschied zu split()
@@ -754,10 +780,40 @@ def repl_dop(liste):	# Doppler entfernen, im Python-Script OK, Problem in Plex -
 	mylist=list(myset)
 	mylist.sort()
 	return mylist
-#----------------------------------------------------------------  
-def L(string):		# s. Start(), Locale-Probleme
+#---------------------------------------------------------------- 
+# s. Start(), Locale-Probleme, Lösung czukowski
+def L(string):		
 	local_string = Locale.LocalString(string)
-	return str(local_string).decode()
+	local_string = str(local_string).decode()
+	Log(string); Log(local_string)
+	return local_string
+#----------------------------------------------------------------
+def myL(string):		# Erweiterung, falls L(string) von czukowski nicht funktioniert
+	loc_file = Dict['loc_file']
+	if os.path.exists(loc_file) == False:			# czukowski-Lösung
+		local_string = Locale.LocalString(string)		
+		return str(local_string).decode()
+	
+	lines = Resource.Load(loc_file)
+	lines = lines.splitlines()
+	lstring = ''	
+	for line in lines:
+		term1 = line.split(':')[0].strip()
+		term1 = term1.strip()
+		term1 = term1.replace('"', '')			# Hochkommata entfernen
+		# Log(term1)
+		if term1 == string:						# string stimmt mit Basis-String überein?
+			lstring = line.split(':')[1]		# 	dann Ziel-String zurückgeben
+			lstring = lstring.strip()
+			lstring = lstring.replace('"', '') 	# Hochkommata + Komma entfernen
+			lstring = lstring.replace(',', '')
+			break
+			
+	Log(string); Log(lstring)		
+	if lstring:
+		return lstring.decode(encoding="utf-8", errors="ignore")
+	else:
+		return string						# Rückgabe Basis-String, falls kein Paar gefunden
 #----------------------------------------------------------------
 ####################################################################################################
 #									Streamtest-Funktionen
