@@ -2,6 +2,7 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 	
+12.10.2017	0.3.9 	Zusätzliche Methode für "Not Supported" Streams (Funktion Rubriken)
 10.10.2017	0.3.8	Renovierung Updater-Modul: Aufsplittung in SearchUpdate + presentUpdate, Github-Quelle 
 			umgestellt auf api-Url + entspr. Anpassungen in updater.py.
 			Integration Sprachdateien Dänisch + Polnisch.

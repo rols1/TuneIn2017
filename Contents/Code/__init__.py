@@ -13,8 +13,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.8'		
-VDATE = '10.10.2017'
+VERSION =  '0.3.9'		
+VDATE = '12.10.2017'
 
 # 
 #	
@@ -222,6 +222,7 @@ def Search(query=None):
 	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
 	
+	query = query.strip()
 	query = query.replace(' ', '+')
 	query = urllib2.quote(query, "utf-8")
 	url = 'http://opml.radiotime.com/Search.ashx?query=%s' % query
@@ -303,7 +304,22 @@ def Rubriken(url, title, image):
 				if bitrate:											# möglich: keine Angabe (stream_type="download")
 					tagline = 'Station | Bitrate: %s KB' % bitrate
 				else:
-					bitrate = '?'									# PHT verträgt '' nicht 
+					bitrate = '?'									# PHT verträgt '' nicht
+					
+				# Sonderfall: Station wird als nicht unterstützt ausgegeben, aber im Web/App gespielt. Hier
+				#	versuchen wir den Zugriff auf die Playlist via preset_id (Analyse Chrome-HAR).
+				if key == "unavailable":							# Bsp. Buddha Hits mit url -> notcompatible.enUS.mp3
+					preset_id  = stringextract('preset_id="', '"', rubrik)
+					new_text 	= text + ' | ' + L("neuer Versuch")
+					new_subtext = subtext + ' | ' + L("neuer Versuch")
+					new_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=mp3,aac' % preset_id
+					oc.add(DirectoryObject(
+						key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate),
+						title = new_text, summary=new_subtext,  tagline=tagline, thumb = image 
+					))  
+					
+					
+				Log(local_url)
 				oc.add(DirectoryObject(
 					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
 					title = text, summary=subtext,  tagline=tagline, thumb = image 
@@ -354,15 +370,16 @@ def StationList(url, title, image, summ, typ, bitrate):
 	if client.find ('Plex Home Theater'): # PHT verweigert TrackObject bei vorh. DirectoryObject
 		oc = home(oc)					
 		
-	if 'No compatible stream' in summ or 'Does not stream' in summ: 	 # Kennzeichnung + mp3 von TuneIn 
-		url = R('notcompatible.enUS.mp3') # Bsp. 106.7 | Z106.7 Jackson
-		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image))
-		return oc
+	if 'No compatible stream' in summ or 'Does not stream' in summ: 	# Kennzeichnung + mp3 von TuneIn 
+		if 'Tune.ashx?' in url == False:								# "trozdem"-Streams überspringen - s. Rubriken
+			url = R('notcompatible.enUS.mp3') # Bsp. 106.7 | Z106.7 Jackson
+			oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image))
+			return oc
 		
 	if 'Tune.ashx?' in url:						# normaler TuneIn-Link zur Playlist o.ä.
 		try:
 			cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
-			Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
+			# Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
 		except Exception as exception:			
 				error_txt = 'Servermessage1: ' + str(exception) 
 				error_txt = error_txt + '\r\n' + url
@@ -473,14 +490,19 @@ def StationList(url, title, image, summ, typ, bitrate):
 def get_pls(url):               # Playlist holen
 	Log('get_pls: ' + url)
 	urls =url.splitlines()	# manchmal mehrere enthalten, auch SHOUTcast.Links, Bsp. http://64.150.176.192:8043/, 
-	for url in urls:		# wir verwenden aber nur den ersten pls-Link 
+	last_url = ''			# 	wir verwenden den letzten pls-Link (i.d.R. der höchstwertige)
+	for url in urls:		
 		if url.endswith('.pls'):
-			break
-
+			last_url=url
+	# Log(url); Log(last_url); 		
+	if url.endswith('.pls') == False:
+		url = last_url
+	
 	try:									# 1. Versuch 
 		pls = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>		
 	except: 	
 		pls=''
+	Log(pls[:10])
 		
 	if pls == '':							# 2. Versuch
 		try:
