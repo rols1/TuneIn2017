@@ -13,7 +13,7 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.4.3'		
+VERSION =  '0.4.4'		
 VDATE = '16.10.2017'
 
 # 
@@ -414,7 +414,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 	err_flag = False; err=''					# Auswertung nach Schleife	
 	url_list = []
 	for line in lines:
-		Log('line: ' + line)
+		# Log('line: ' + line)
 		url = line
 
 		if '=http' in line:						# Playlist-Eintrag, Bsp. File1=http://195.150.20.9:8000/..
@@ -497,8 +497,8 @@ def get_pls(url):               # Playlist holen
 	for url in urls:		
 		if url.endswith('.pls'):
 			last_url=url
-	# Log(url); Log(last_url); 		
-	if url.endswith('.pls') == False:
+	Log(url); Log(last_url); 		
+	if url.endswith('.pls') == False and len(last_url) > 8:	# last_url darf nicht leer sein
 		url = last_url
 	
 	try:									# 1. Versuch (klappt mit KSJZ.db unter Linux, nicht unter Windows)
