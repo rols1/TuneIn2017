@@ -22,6 +22,8 @@ INSTALLATION:
 Want to help translate this plugin?
 ===================  
 https://poeditor.com/join/project/SKrMQklJVu
+This page contains pictures and context-descriptions for the terms:
+https://github.com/rols1/TuneIn2017/wiki/TuneIn2017---Pictures-for-the-Localisation-Project
 
 UPDATES:
 ===================  

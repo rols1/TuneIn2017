@@ -19,5 +19,7 @@
 	"Username ueberpruefen": "Venligst kontroller bruger navn",
 	"keinen Stream gefunden zu": "Ingen stream fundet for",
 	"nicht gefunden": "ikke fundet",
-	"Mehr...": "Mere..."
+	"Mehr...": "Mere...",
+	"neues Update beim Start des Plugins anzeigen": "Kig efter opdateringer under startup",
+	"Sprache Plugin": "Tilgængelige sprog"
 }

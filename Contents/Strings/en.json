@@ -20,5 +20,7 @@
 	 "keinen Stream gefunden zu": "no stream found for",
 	 "nicht gefunden": "not found",
 	 "Mehr...":  "More...",
-	 "neuer Versuch": "new try"
+	 "neuer Versuch": "new try",
+	 "neues Update beim Start des Plugins anzeigen": "look for update at plugin-start",
+	 "Sprache Plugin": "Language Plugin"
 }

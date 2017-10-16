@@ -14,7 +14,7 @@
     	{
 	        "id": "language",
 	        "type": "enum",
-	        "label": "Sprache Plugin / Language Plugin",
+	        "label": "Sprache Plugin",
 	        "default": "German/de/de-DE",
 	        "values": [
 	            "Afrikaans/af",

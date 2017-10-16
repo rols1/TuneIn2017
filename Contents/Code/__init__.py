@@ -13,8 +13,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.3.9'		
-VDATE = '12.10.2017'
+VERSION =  '0.4.3'		
+VDATE = '16.10.2017'
 
 # 
 #	
@@ -70,7 +70,9 @@ def Start():
 	DirectoryObject.thumb = R(ICON)
 	
 	Dict.Reset()
+	Dict['R'] = Core.storage.join_path(Core.bundle_path, 'Contents')
 	ValidatePrefs()
+	
 	
 # Locale-Probleme 	s. https://forums.plex.tv/discussion/126807/another-localization-question,
 #					https://forums.plex.tv/discussion/143342/non-ascii-characters-in-translations
@@ -87,19 +89,20 @@ def ValidatePrefs():
 	except:
 		loc 		= 'en-us'
 		loc_browser = 'en-US'
-	loc_file = Core.storage.abs_path(
-		Core.storage.join_path(Core.bundle_path, 'Contents', 'Strings', '%s.json' % loc))
+	loc_file = Core.storage.abs_path(Core.storage.join_path(Dict['R'], 'Strings', '%s.json' % loc))
 	Log(loc_file)		
 	if os.path.exists(loc_file):
 		Locale.DefaultLocale = loc
 	else:
 		Locale.DefaultLocale = 'en-us'	# Fallback
+		
 	Dict['loc'] 		= loc
 	Dict['loc_file'] 	= loc_file
 	Dict['loc_browser'] = loc_browser
 	Log('loc: %s' % loc)
 	Log('loc_file: %s' % loc_file)
 	Log('loc_browser: %s' % loc_browser)
+
 
 ####################################################################################################
 @handler(PREFIX, NAME,  art = ART, thumb = ICON)
@@ -271,7 +274,7 @@ def Rubriken(url, title, image):
 	
 	if len(outlines) == 0:								# Normalausgabe ohne Gliederung, Bsp. alle type="link" 
 		outlines = blockextract('<body>', page)
-		Log('switch_no_structure')
+		Log('switch_no_blocks')
 	Log(len(outlines))		
 		
 	for outline in outlines:
@@ -398,7 +401,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 			cont = cont.decode(encoding="utf-8", errors="ignore")	# http://radiounodigital.com/Players-Tunein/rollingstones.pls
 			return ObjectContainer(header=L('Fehler'), message=cont)
 	
-	# if line.endswith('.m3u'):				# ein oder mehrere .m3u-Links
+	# if line.endswith('.m3u'):				# ein oder mehrere .m3u-Links, Bsp. "Absolut relax (Easy Listening Music)"
 	if '.m3u' in cont:						# auch das: ..playlist/newsouth-wusjfmmp3-ibc3.m3u?c_yob=1970&c_gender..
 		cont = get_m3u(cont)
 		Log('m3u-cont: ' + cont)
@@ -498,24 +501,36 @@ def get_pls(url):               # Playlist holen
 	if url.endswith('.pls') == False:
 		url = last_url
 	
-	try:									# 1. Versuch 
-		pls = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>		
+	try:									# 1. Versuch (klappt mit KSJZ.db unter Linux, nicht unter Windows)
+		pls = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>	
 	except: 	
 		pls=''
 	Log(pls[:10])
-		
+
+	# Zertifikate-Problem (im Vergleich vorwiegend unter Windows):
+	# Falls die Url im „Location“-Header-Feld eine neue HTTPS-Adresse enthält (Moved Temporarily), ist ein Zertifikat erforderlich.
+	# 	akzeptiert: ca-bundle.pem	(Linux /etc/ssl/ca-bundle.pem). Wir leihen uns hier ein großes Mozilla-Zertifikat cacert.pem.
+	#	Aber: falls ssl.SSLContext verwendet wird, schlägt der Request fehl.
+	#	Hinw.: 	gcontext nicht mit	cafile verwenden (ValueError)
+	#	Bsp.: KSJZ.db, Playlist http://smoothlounge.com/streams/smoothlounge_128.pls
+	# Ansatz, falls dies unter Windows fehlschlägt: in der url-Liste nach einzelner HTP-Adresse (ohne .pls) suchen
+						
 	if pls == '':							# 2. Versuch
 		try:
 			req = urllib2.Request(url)
-			ret = urllib2.urlopen(req)
-			pls = ret.read()	
-			Log(pls[:10])
+			cafile = Core.storage.join_path(Core.bundle_path, 'Contents', 'Resources', 'cacert.pem')
+			Log(cafile)
+			req = urllib2.urlopen(req, cafile=cafile, timeout=6) 
+			# headers = getHeaders(req)		# bei Bedarf
+			# Log(headers)
+			pls = req.read()
+			Log(pls[:20])
 		except Exception as exception:	
 			error_txt = 'Servermessage2: ' + str(exception)
 			error_txt = error_txt + '\r\n' + url
 			pls=error_txt
 			return pls	
-		
+											# 3. Versuch
 	if '[playlist]' in pls == False:	# Playlist erst mit der gefundenen url verfügbar 
 		try:
 			pls = HTTP.Request(pls).content # Bsp. [playlist] File1=http://195.150.20.9:8000/rmf_baby
@@ -681,7 +696,12 @@ def SearchUpdate(title, start, oc=None):
 	
 	if start=='true':									# Aufruf beim Pluginstart
 		if Prefs['InfoUpdate'] == True:					# Hinweis auf neues Update beim Start des Plugins 
-			oc,available = presentUpdate(oc,start)				
+			oc,available = presentUpdate(oc,start)
+			if available == 'no_connect':
+				msgH = L('Fehler'); 
+				msg = L('Github ist nicht errreichbar') +  ' - ' +  L('Bitte die Update-Anzeige abschalten')		
+				return ObjectContainer(header=msgH, message=msg)
+							
 			if 	available == 'true':					# Update präsentieren
 				return oc
 														# Menü Plugin-Update zeigen														
@@ -695,7 +715,12 @@ def SearchUpdate(title, start, oc=None):
 	else:					# start=='false', Aufruf aus Menü Plugin-Update
 		oc = ObjectContainer(title2=title, art=ObjectContainer.art)	
 		oc,available = presentUpdate(oc,start)
-		return oc	
+		if available == 'no_connect':
+			msgH = L('Fehler'); 
+			msg = L('Github ist nicht errreichbar') 		
+			return ObjectContainer(header=msgH, message=msg)
+		else:
+			return oc	
 	
 		
 #-----------------------------
@@ -706,10 +731,8 @@ def presentUpdate(oc,start):
 	int_lc = ret[1]			# Version aktuell
 	latest_version = ret[2]	# Version Github, Format 1.4.1
 
-	if ret[0] == False:
-		msgH = L('Fehler'); 
-		msg = L('Github ist nicht errreichbar') +  ' - ' +  L('Bitte die Update-Anzeige abschalten')		
-		return ObjectContainer(header=msgH, message=msg)
+	if ret[0] == None:
+		return oc, 'no_connect'
 		
 	zip_url = ret[5]	# erst hier referenzieren, bei Github-Ausfall None
 	url = zip_url
@@ -724,6 +747,7 @@ def presentUpdate(oc,start):
 
 		oc.add(DirectoryObject(key=Callback(updater.update, url=url , ver=latest_version), 
 			title=title, summary=summary, tagline=tag, thumb=R(ICON_UPDATER_NEW)))
+			
 		if start == 'false':						# Option Abbrechen nicht beim Start zeigen
 			oc.add(DirectoryObject(key = Callback(Main), title = L('Update abbrechen'),
 				summary = L('weiter im aktuellen Plugin'), thumb = R(ICON_UPDATER_NEW)))
@@ -923,7 +947,7 @@ def getStreamMeta(address):
 		Log(error)
 		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}
 
-	except urllib2.URLError, e:
+	except urllib2.URLError, e:						# Bsp. RANA FM 88.5 http://216.221.73.213:8000
 		error='Error, URLError: ' + str(e.reason)
 		Log(error)
 		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}

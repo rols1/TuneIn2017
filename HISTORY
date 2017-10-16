@@ -2,7 +2,14 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 	
-12.10.2017	0.3.9 	Zusätzliche Methode für "Not Supported" Streams (Funktion Rubriken)
+	
+16.10.2017	0.4.3	Aktualisierung Sprachdatei Dänisch. 
+not on github	0.4.2	Funktion get_pls: Zertikatverwendung (für Windows erforderlich) für "Moved Temporarily"-
+			Adressen. 
+not on github	0.4.1	Pfad zum Content-Pfad des Plugins globalisiert (Dict['R']).	
+not on github	0.4.0	Aufnahme TuneIn2017 in lokalen Watchdog (Watchdog_Plex-2.py): 1 x ROOT_URL, 1 x query
+			Rubriken: Umbenennung switch_no_structure in switch_no_blocks	
+12.10.2017	0.3.9 	Zusätzliche Methode für "Not Supported" Streams (Funktion Rubriken).
 10.10.2017	0.3.8	Renovierung Updater-Modul: Aufsplittung in SearchUpdate + presentUpdate, Github-Quelle 
 			umgestellt auf api-Url + entspr. Anpassungen in updater.py.
 			Integration Sprachdateien Dänisch + Polnisch.
