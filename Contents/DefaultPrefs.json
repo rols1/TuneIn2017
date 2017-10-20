@@ -6,6 +6,12 @@
 		"default": "true"
 	},
 	{
+		"id": "PlusAAC",
+		"type": "bool",
+		"label": "Audio: plus AAC-Format",
+		"default": "true"
+	},
+	{
 		"id": "username",
 		"type": "text",
 		"label": "TuneIn username",

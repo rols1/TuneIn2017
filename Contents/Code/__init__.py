@@ -13,8 +13,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.4.4'		
-VDATE = '16.10.2017'
+VERSION =  '0.5.2'		
+VDATE = '20.10.2017'
 
 # 
 #	
@@ -51,8 +51,10 @@ MENU_ICON 	=  	{'menu-lokale.png', 'menu_kuerzlich.png', 'menu-trend.png', 'menu
 					'menu-sport.png', 'menu-news.png', 'menu-talk.png', 'menu-audiobook.png', 'menu-pod.png', 
 				}
 
-ROOT_URL 	= 'http://opml.radiotime.com/Browse.ashx?formats=mp3,aac'
+ROOT_URL 	= 'http://opml.radiotime.com/Browse.ashx?formats=%s'
 USER_URL 	= 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
+NEWS_URL	= 'http://opml.radiotime.com/Browse.ashx?id=c57922&formats=%s'
+
 PREFIX 		= '/music/tunein2017'
 
 REPO_NAME		 	= NAME
@@ -62,15 +64,24 @@ REPO_URL 			= 'https://github.com/{0}/releases/latest'.format(GITHUB_REPOSITORY)
 
 ####################################################################################################
 def Start():
-
+	# Phänomen bei Verzicht auf HTTP.CacheTime:
+	# mit dieser url ruft das Framework beim 2. Durchlauf von CreateTrackObject  Main() auf (aber nicht, wenn sie hier direkt zugeordnet wird):	
+	# 	url='http://absolut.hoerradar.de/absolutradio.mp3?sABC=59r8r97q#0#2s45pq59pr6699onn0qq321942141r80#gharva&amsparams=playerid:tunein;skey:1508436349'
+	# Framework-Call uaf Main() dazu (statt PlayAudio):
+	#	GET /music/tunein2017?includeConcerts=1&includeExtras=1&includeOnDeck=1&includePopularLeaves=1&includeChapters=1&checkFiles=1
+	
 	ObjectContainer.title1 = NAME
-	HTTP.CacheTime = 300
+	HTTP.CacheTime = 300			
 	ObjectContainer.art = R(ART)
 	DirectoryObject.art = R(ART)
 	DirectoryObject.thumb = R(ICON)
+	global MyContents
+	global UrlopenTimeout 		
+	UrlopenTimeout = 3			# Timeout sec, 18.10.2017 von 6 auf 3
 	
 	Dict.Reset()
-	Dict['R'] = Core.storage.join_path(Core.bundle_path, 'Contents')
+	MyContents = Core.storage.join_path(Core.bundle_path, 'Contents')
+
 	ValidatePrefs()
 	
 	
@@ -89,7 +100,7 @@ def ValidatePrefs():
 	except:
 		loc 		= 'en-us'
 		loc_browser = 'en-US'
-	loc_file = Core.storage.abs_path(Core.storage.join_path(Dict['R'], 'Strings', '%s.json' % loc))
+	loc_file = Core.storage.abs_path(Core.storage.join_path(MyContents, 'Strings', '%s.json' % loc))
 	Log(loc_file)		
 	if os.path.exists(loc_file):
 		Locale.DefaultLocale = loc
@@ -141,9 +152,14 @@ def Main():
 			title = my_title, thumb = R(ICON) 
 		))                    
 		
+	formats = 'mp3,aac'	
+	Log(Prefs['PlusAAC'])								
+	if  Prefs['PlusAAC'] == False:					# Performance, aac ist bei manchen Sendern nicht erreichbar
+		formats = 'mp3'
+	
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
-	req = urllib2.Request(ROOT_URL)					# xml-Übersicht Rubriken
+	req = urllib2.Request(ROOT_URL % formats)					# xml-Übersicht Rubriken
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) # Quelle Language-Werte: Chrome-HAR
 	ret = urllib2.urlopen(req)
 	page = ret.read()
@@ -158,7 +174,12 @@ def Main():
 		oc.add(DirectoryObject(
 			key = Callback(Rubriken, url=local_url, title=text, image=image),
 			title = text, summary=subtext, thumb = R(thumb) 
-		))   
+		))
+													# Nachrichten anhängen
+	oc.add(DirectoryObject(key = Callback(Rubriken, url=NEWS_URL % formats, title='NEWS', image=R('menu-news.png')),	
+		title = 'NEWS', summary='NEWS', thumb = R('menu-news.png'))) 
+	 
+  
 		       
 #-----------------------------	
 	oc = SearchUpdate(title=NAME, start='true', oc=oc)	# Updater-Modul einbinden:
@@ -289,7 +310,7 @@ def Rubriken(url, title, image):
 		rubriken = blockextract('<outline type', outline)	# restliche outlines
 		for rubrik in rubriken:			
 			typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
-			Log(local_url)
+			# Log(local_url)		# bei Bedarf
 			# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
 			# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
 
@@ -322,7 +343,7 @@ def Rubriken(url, title, image):
 					))  
 					
 					
-				Log(local_url)
+				# Log(local_url)		# bei Bedarf
 				oc.add(DirectoryObject(
 					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
 					title = text, summary=subtext,  tagline=tagline, thumb = image 
@@ -363,7 +384,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 	summ = unescape(summ)
 	Log(title);Log(image);Log(summ);Log(typ);Log(bitrate)
 	title = title.decode(encoding="utf-8", errors="ignore")
-	summ_org=summ; bitrate_org=bitrate	# sichern
+	org_title=title; summ_org=summ; bitrate_org=bitrate		# sichern
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 	
 	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
@@ -395,6 +416,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 		cont = url
 		Log('custom_content: ' + cont)
 		
+	# .pls-Auswertung ziehen wir vor, auch wenn (vereinzelt) .m3u-Links enthalten sein können
 	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist (.pls, .m3u)				
 		cont = get_pls(cont)
 		if cont.startswith('Servermessage'): 						# Bsp. Rolling Stones by Radio UNO Digital, pls-Url: 
@@ -408,33 +430,38 @@ def StationList(url, title, image, summ, typ, bitrate):
 		if cont == '':
 			msg=L('keinen Stream gefunden zu') 
 			message="%s %s" % (msg, title)
-			return ObjectContainer(header=L('Fehler'), message=message)
+			return ObjectContainer(header=L('Fehler'), message=message)			
 
 	lines = cont.splitlines()
 	err_flag = False; err=''					# Auswertung nach Schleife	
 	url_list = []
+	line_cnt = 0								# Einzelzählung
 	for line in lines:
-		# Log('line: ' + line)
+		line_cnt = line_cnt + 1
+		Log('line %s: %s' % (line_cnt, line))
 		url = line
 
 		if '=http' in line:						# Playlist-Eintrag, Bsp. File1=http://195.150.20.9:8000/..
 			url = line.split('=')[1]
 			Log(url)
 
-		if url.startswith('http'):			
-			ret = getStreamMeta(url)			# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
-			st = ret.get('status')				# 	http://217.198.148.101:80/
+		if url.startswith('http'):				# rtpm u.ä. ignorieren
+			if url.endswith('.mp3'):			# .mp3 bei getStreamMeta durchwinken
+				st=1; ret={}
+			else:
+				ret = getStreamMeta(url)		# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
+				st = ret.get('status')			# 	http://217.198.148.101:80/
 			Log('ret.get.status: ' + str(st))
-						
+			
 			if st == 0:							# nicht erreichbar, verwerfen. Bsp. http://server-uk4.radioseninternetuy.com:9528
 				err = ret.get('error')			# Bsp.  City FM 92.9 (Taichung, Taiwan):
 				err = err + '\r\n' + url		#	URLError: timed out, http://124.219.41.230:8000/929.mp3
 				err_flag = True
 				Log(err)
-				# return ObjectContainer(header=L('Fehler'), message=err) # erst nach Schleife, s.u.
+				# return ObjectContainer(header=L('Fehler'), message=err) # erst nach Durchlauf der Liste, s.u.
 				continue							
 			else:
-				if ret.get('metadata'):					# Status 1: Stream ist up, Metadaten aktualisieren
+				if ret.get('metadata'):					# Status 1: Stream ist up, Metadaten aktualisieren (nicht .mp3)
 					metadata = ret.get('metadata')
 					Log('metadata:'); Log(metadata)						
 					bitrate = metadata.get('bitrate')	# bitrate aktualisieren, falls in Metadaten vorh.
@@ -459,8 +486,8 @@ def StationList(url, title, image, summ, typ, bitrate):
 					else:
 						url = '%s/;' % url	
 											
-			Log('append:')	
-			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject
+			Log('append: ' + url)	
+			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject				
 		
 	Log(len(url_list))		
 	url_list = repl_dop(url_list)				# Doppler entfernen	
@@ -472,7 +499,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 		message="%s %s" % (msg, title)
 		return ObjectContainer(header=L('Fehler'), message=message)
 
-	i=1; org_title=title
+	i=1; 
 	for line in url_list:
 		Log(line)
 		url   = line.split('|||')[0]
@@ -480,65 +507,71 @@ def StationList(url, title, image, summ, typ, bitrate):
 		server = url[:80] + '...'
 		summ  = '%s | %s' % (summ, server)
 		
-		fmt='mp3'
-		if 'aac' in url:						# nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX
+		fmt='mp3'								# Format nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX. Ermittlung
+		if 'aac' in url:						#	 in getStreamMeta (contenttype) hier bisher nicht genutzt
 			fmt='aac'
 		title = org_title + ' | Stream %s | %s'  % (str(i), fmt)
 		i=i+1
+		Log(url)
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
-		
 	return oc
 
 #-----------------------------
 def get_pls(url):               # Playlist holen
 	Log('get_pls: ' + url)
-	urls =url.splitlines()	# manchmal mehrere enthalten, auch SHOUTcast.Links, Bsp. http://64.150.176.192:8043/, 
-	last_url = ''			# 	wir verwenden den letzten pls-Link (i.d.R. der höchstwertige)
-	for url in urls:		
-		if url.endswith('.pls'):
-			last_url=url
-	Log(url); Log(last_url); 		
-	if url.endswith('.pls') == False and len(last_url) > 8:	# last_url darf nicht leer sein
-		url = last_url
-	
-	try:									# 1. Versuch (klappt mit KSJZ.db unter Linux, nicht unter Windows)
-		pls = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>	
-	except: 	
-		pls=''
-	Log(pls[:10])
+	urls =url.splitlines()	# mehrere möglich, auch SHOUTcast- und m3u-Links, Bsp. http://64.150.176.192:8043/, 
 
-	# Zertifikate-Problem (im Vergleich vorwiegend unter Windows):
-	# Falls die Url im „Location“-Header-Feld eine neue HTTPS-Adresse enthält (Moved Temporarily), ist ein Zertifikat erforderlich.
-	# 	akzeptiert: ca-bundle.pem	(Linux /etc/ssl/ca-bundle.pem). Wir leihen uns hier ein großes Mozilla-Zertifikat cacert.pem.
-	#	Aber: falls ssl.SSLContext verwendet wird, schlägt der Request fehl.
-	#	Hinw.: 	gcontext nicht mit	cafile verwenden (ValueError)
-	#	Bsp.: KSJZ.db, Playlist http://smoothlounge.com/streams/smoothlounge_128.pls
-	# Ansatz, falls dies unter Windows fehlschlägt: in der url-Liste nach einzelner HTP-Adresse (ohne .pls) suchen
-						
-	if pls == '':							# 2. Versuch
-		try:
-			req = urllib2.Request(url)
-			cafile = Core.storage.join_path(Core.bundle_path, 'Contents', 'Resources', 'cacert.pem')
-			Log(cafile)
-			req = urllib2.urlopen(req, cafile=cafile, timeout=6) 
-			# headers = getHeaders(req)		# bei Bedarf
-			# Log(headers)
-			pls = req.read()
-			Log(pls[:20])
-		except Exception as exception:	
-			error_txt = 'Servermessage2: ' + str(exception)
-			error_txt = error_txt + '\r\n' + url
-			pls=error_txt
-			return pls	
-											# 3. Versuch
-	if '[playlist]' in pls == False:	# Playlist erst mit der gefundenen url verfügbar 
-		try:
-			pls = HTTP.Request(pls).content # Bsp. [playlist] File1=http://195.150.20.9:8000/rmf_baby
-		except Exception as exception:	
-			error_txt = 'Servermessage3: ' + str(exception)
-			error_txt = error_txt + '\r\n' + url
-			pls=error_txt
+	pls_cont = []
+	for url in urls:
+		# Log(url)
+		cont = url
+		if url.startswith('http') == False:		# Sicherung, falls Zeile keine Url enthält (bisher aber nicht gesehen)
+			continue
+		if 	'.pls' in url or url.endswith('.m3u'):	# .pls auch im Pfad möglich, Bsp. AFN: ../AFNE_WBN.pls?DIST=TuneIn&TGT=..
+			try:									# 1. Versuch (klappt mit KSJZ.db unter Linux, nicht unter Windows)
+				cont = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>	
+			except: 	
+				cont=''
+		cont = cont.strip()
+		Log(cont)
+
+		# Zertifikate-Problem (vorwiegend unter Windows):
+		# Falls die Url im „Location“-Header-Feld eine neue HTTPS-Adresse enthält (Moved Temporarily), ist ein Zertifikat erforderlich.
+		# 	DPerformance: as große Mozilla-Zertifikat cacert.pem tauschen wir gegen /etc/ssl/ca-bundle.pem von linux (ca. halbe Größe).
+		#	Aber: falls ssl.SSLContext verwendet wird, schlägt der Request fehl.
+		#	Hinw.: 	gcontext nicht mit	cafile verwenden (ValueError)
+		#	Bsp.: KSJZ.db SmoothLounge, Playlist http://smoothlounge.com/streams/smoothlounge_128.pls
+		# Ansatz, falls dies unter Windows fehlschlägt: in der url-Liste nach einzelner HTP-Adresse (ohne .pls) suchen
+		
+		if cont == '':							# 2. Versuch
+			try:
+				req = urllib2.Request(url)
+				cafile = Core.storage.abs_path(Core.storage.join_path(MyContents, 'Resources', 'ca-bundle.pem'))		
+				Log(cafile)
+				req = urllib2.urlopen(req, cafile=cafile, timeout=UrlopenTimeout) 
+				# headers = getHeaders(req)		# bei Bedarf
+				# Log(headers)
+				cont = req.read()
+				Log(cont)
+			except Exception as exception:	
+				error_txt = 'Servermessage2: ' + str(exception)
+				error_txt = error_txt + '\r\n' + url
+				Log(error_txt)
+												# 3. Versuch
+		Log(cont)
+		if '[playlist]' in cont:	# Streamlinks aus Playlist extrahieren 
+			lines =cont.splitlines()
+			for line in lines:	
+				if 'http' in line:	# Bsp. File1=http://195.150.20.9:8000/.., split in Verlauf StationList
+					pls_cont.append(cont)	
+		else:
+			if cont.startswith('http'):
+				pls_cont.append(cont)
 				 			 	 		   
+	pls = pls_cont
+	lines = repl_dop(pls)
+	pls = '\n'.join(lines)
+	pls = pls.strip()
 	Log(pls[:100])
 	return pls
     
@@ -547,23 +580,19 @@ def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werde
 	Log('get_m3u: ' + url)		#	Details holt getStreamMeta
 	urls =url.splitlines()	
 	
-	m3u_cont = ''
+	m3u_cont = []
 	for url in urls:	
 		if url.startswith('http') and url.endswith('.m3u'):		
 			try:									
-				req = HTTP.Request(url).content 	
+				req = HTTP.Request(url).content 
+				req = urllib2.unquote(req).strip()	
+				# Log(req)	
 			except: 	
 				req=''
-			m3u_cont = m3u_cont + req			# m3u-Inhalt anhängen
+			if req.startswith('http'):			# skip #EXTM3U, #EXTINF
+				m3u_cont.append(req)			# m3u-Inhalt anhängen
 		
-	pls=''; 
-	lines =m3u_cont.splitlines()	
-	for line in lines:
-		# Log(line)
-		if line.startswith('http'):			# skip #EXTM3U, #EXTINF, .. / Links sammeln
-			pls = pls + line + '|'	
-				 	
-	pls =pls.split('|')	
+	pls = m3u_cont	
 	lines = repl_dop(pls)					# häufig identische Links in verschiedenen m3u8-Inhalten, 
 	pls = '\n'.join(lines) # 				# Coolradio Jazz: coolradio1-48.m3u, coolradio1-128.m3u, coolradio1-hq.m3u
 	pls = pls.strip()
@@ -677,7 +706,7 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 			url=GetLocalUrl()					# lokale mp3-Nachricht,  s.u. GetLocalUrl	
 		
 	return Redirect(url)
-
+	
 #-----------------------------
 def GetLocalUrl(): 						# lokale mp3-Nachricht, engl./deutsch - nur für PlayAudio
 	loc = str(Dict['loc'])
@@ -831,7 +860,7 @@ def repl_dop(liste):	# Doppler entfernen, im Python-Script OK, Problem in Plex -
 def L(string):		
 	local_string = Locale.LocalString(string)
 	local_string = str(local_string).decode()
-	Log(string); Log(local_string)
+	# Log(string); Log(local_string)
 	return local_string
 #----------------------------------------------------------------
 def myL(string):		# Erweiterung, falls L(string) von czukowski nicht funktioniert
@@ -888,15 +917,16 @@ def getStreamMeta(address):
 	shoutcast = False
 	status = 0
 
-	# Test auf angehängte Portnummer (zusätzl. Indikator für Stream)
-	port = address.split(':')[-1]	# http://live.radiosbn.com:9400/
-	port = port.replace('/', '')	# angeh. Slash entf.
-	try:
-		number = int(port)
-		hasPortNumber='true'
-	except:
-		hasPortNumber='false'
-	
+	# Test auf angehängte Portnummer = zusätzl. Indikator für Stream, Anhängen von ; in StationList
+	#	aber nur, wenn Link direkt mit Portnummer oder Portnummer + / endet, Bsp. http://rs1.radiostreamer.com:8020/
+	hasPortNumber='false'
+	p = urlparse(address)
+	if p.port and p.path == '':	
+		hasPortNumber='true'		
+	if p.port and p.path:
+		if address.endswith('/'):		# als path nur / erlaubt
+			hasPortNumber='true'
+	Log('hasPortNumber: ' + hasPortNumber)	
 	
 	request = urllib2.Request(address)
 	user_agent = 'iTunes/9.1.1'
@@ -906,8 +936,9 @@ def getStreamMeta(address):
 	gcontext.check_hostname = False
 	
 	try:
-		response = urllib2.urlopen(request, context=gcontext, timeout=6)
+		response = urllib2.urlopen(request, context=gcontext, timeout=UrlopenTimeout)	
 		headers = getHeaders(response)
+		# Log(headers)
 		   
 		if "server" in headers:
 			shoutcast = headers['server']
