@@ -7,7 +7,7 @@ Download aktuelle Version: https://github.com/rols1/TuneIn2017/releases
 #### Rückmeldungen willkommen / Feedeback welcome: https://forums.plex.tv/discussion/288260/tunein2017
 EMail: rols1@gmx.de 
   
-#### Funktionen (getestet in Chrome, OpenPHT, Plex Media Player)
+#### Funktionen (getestet unter Linux und Windows, mit Chrome, OpenPHT, Plex Media Player)
 
 
 
