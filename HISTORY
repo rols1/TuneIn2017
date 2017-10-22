@@ -3,6 +3,7 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 	
 	
+22.10.2017	0.5.3	Aktualisierung Sprachdatei Polnisch.	
 20.10.2017	0.5.2	Performance: AAC-Format als Option, Default ja - Einstellungen / Main().
 not on github	0.5.1	getStreamMeta / Test auf Portnummer: Ausnahme für Pfadinhalte nach Portnummer.  				 	
 not on github	0.5.0	Performance (StationList): .mp3-Files von der Meta-Auswertung in getStreamMeta ausgenommen.
@@ -10,7 +11,7 @@ not on github	0.4.9	get_m3u: Code-Bereinigung (Performance).
 not on github	0.4.8	global urlopen_timeout für urllib2.urlopen  + von 6 auf 3 gesetzt (Performance).
 			Start: Verzicht auf Cache-Timeout (Performance) - wieder rückgängig wg. Framework-Phänomen:
 			falscher Funktionsaufruf (Main statt PlayAudio).
-not on github	0.4.7	getStreamMeta: Test auf Portnummer geändert ->  urlparse(address) 	
+not on github	0.4.7	getStreamMeta: Test auf Portnummer geändert ->  urlparse(address).	
 not on github	0.4.6	Hinzugefügt: Menü News.
 			Austausch Content-Pfad-Variable (Dict['R']) gegen global MyContents (Performance).
 not on github	0.4.5	Austausch Mozilla-Zertikat gegen Linux-Zertikat (Performance).

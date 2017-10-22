@@ -13,8 +13,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.5.2'		
-VDATE = '20.10.2017'
+VERSION =  '0.5.3'		
+VDATE = '22.10.2017'
 
 # 
 #	
@@ -484,7 +484,10 @@ def StationList(url, title, image, summ, typ, bitrate):
 					if url.endswith('/'):				#	http://stream01.streamhier.nl:9010
 						url = '%s;' % url
 					else:
-						url = '%s/;' % url	
+						url = '%s/;' % url
+				else:	
+					if url.endswith('.fm/'):			# Bsp. http://mp3.dinamo.fm/ (SHOUTcast-Stream)
+						url = '%s;' % url
 											
 			Log('append: ' + url)	
 			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject				

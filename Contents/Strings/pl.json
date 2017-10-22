@@ -19,5 +19,8 @@
 	"Username ueberpruefen": "Sprawdź nazwę użytkownika",
 	"keinen Stream gefunden zu": "brak źródła dla",
 	"nicht gefunden": "nie znaleziono",
-	"Mehr...": "Więcej..."
+	"Mehr...": "Więcej...",
+	"neuer Versuch": "spróbuj ponownie",
+	"neues Update beim Start des Plugins anzeigen": "Sprawdź aktualizacje podczas uruchomienia wtyczki",
+	"Sprache Plugin": "wersja językowa wtyczki"
 }
