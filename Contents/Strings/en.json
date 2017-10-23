@@ -22,5 +22,6 @@
 	 "Mehr...":  "More...",
 	 "neuer Versuch": "new try",
 	 "neues Update beim Start des Plugins anzeigen": "look for update at plugin-start",
-	 "Sprache Plugin": "Language Plugin"
+	 "Sprache Plugin": "Language Plugin",
+	"maximale Anzahl Objekte pro Seite": "maximum number of items per page"
 }

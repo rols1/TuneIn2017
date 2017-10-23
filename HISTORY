@@ -1,8 +1,11 @@
 CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
+
 	
-	
+23.10.2017	0.5.6	Einstellungen / Funktion Rubriken: Option "max. Objekte/Seite", um Plugin-Blockaden durch
+			Timeouts vorzubeugen.		
+not on github	0.5.5	get_m3u: Berücksichtigung kompl. m3u-Dateien (bisher nur Einzelzeilen). 		
 22.10.2017	0.5.3	Aktualisierung Sprachdatei Polnisch.	
 20.10.2017	0.5.2	Performance: AAC-Format als Option, Default ja - Einstellungen / Main().
 not on github	0.5.1	getStreamMeta / Test auf Portnummer: Ausnahme für Pfadinhalte nach Portnummer.  				 	

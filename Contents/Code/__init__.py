@@ -13,8 +13,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.5.3'		
-VDATE = '22.10.2017'
+VERSION =  '0.5.6'		
+VDATE = '23.10.2017'
 
 # 
 #	
@@ -161,6 +161,7 @@ def Main():
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
 	req = urllib2.Request(ROOT_URL % formats)					# xml-Übersicht Rubriken
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) # Quelle Language-Werte: Chrome-HAR
+	# req.add_header('Accept-Encoding',  'gzip, deflate, br')			# Performance, klappt nicht in Plex
 	ret = urllib2.urlopen(req)
 	page = ret.read()
 	
@@ -260,13 +261,20 @@ def Search(query=None):
 	return oc
 #-----------------------------
 @route(PREFIX + '/Rubriken')
-def Rubriken(url, title, image):
+def Rubriken(url, title, image, offset=0):
 	Log('Rubriken: ' + url)
+	Log(offset)
+	offset = int(offset)
+	url_org 	= url	# sichern
+	title_org 	= title	# sichern
 
+	max_count = ''									# Default: keine Begrenzung
+	if Prefs['maxPageContent']:
+		max_count = int(Prefs['maxPageContent'])	# max. Anzahl Einträge ab offset
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
 	req = urllib2.Request(url)					# xml-Übersicht Rubriken
-	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) # Quelle Language-Werte: Chrome-HAR
+	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
 	ret = urllib2.urlopen(req)
 	page = ret.read()	
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
@@ -284,6 +292,9 @@ def Rubriken(url, title, image):
 	oc_title2 = stringextract('<title>', '</title>', page)	# Bsp. <title>Frankfurt am Main</title>
 	oc_title2 = unescape(oc_title2)
 	oc_title2 = oc_title2.decode(encoding="utf-8", errors="ignore")
+	oc_title2_org = oc_title2	# sichern
+	if offset:
+		oc_title2 = oc_title2 + ' | %s...' % offset		# Bsp.: 
 	
 	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
@@ -308,6 +319,14 @@ def Rubriken(url, title, image):
 			
 		# if key == 'stations'							# z.Z. nicht nötig, Rest typ=link od. typ=audio
 		rubriken = blockextract('<outline type', outline)	# restliche outlines
+		page_cnt = len(rubriken)
+		
+		if 	max_count:									# '' = 'Mehr..'-Option ausgeschaltet
+			delnr = min(page_cnt, offset)
+			del rubriken[:delnr]
+			Log(delnr)				
+		Log(page_cnt); Log(len(rubriken))
+		
 		for rubrik in rubriken:			
 			typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
 			# Log(local_url)		# bei Bedarf
@@ -319,7 +338,7 @@ def Rubriken(url, title, image):
 			
 			if typ == 'link':									# bitrate hier n.b.
 				oc.add(DirectoryObject(
-					key = Callback(Rubriken, url=local_url, title=text, image=image),
+					key = Callback(Rubriken, url=local_url, title=text, image=image, offset=0),
 					title = text, summary=subtext, tagline=L('Mehr...'), thumb = image 
 				)) 
 								 
@@ -340,15 +359,30 @@ def Rubriken(url, title, image):
 					oc.add(DirectoryObject(
 						key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate),
 						title = new_text, summary=new_subtext,  tagline=tagline, thumb = image 
-					))  
-					
+					))  				
 					
 				# Log(local_url)		# bei Bedarf
 				oc.add(DirectoryObject(
 					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
 					title = text, summary=subtext,  tagline=tagline, thumb = image 
-				))  
-
+				)) 
+				 
+			if max_count:
+				# Mehr Seiten anzeigen:		
+				cnt = len(oc) + offset		# 
+				# Log('Mehr-Test'); Log(len(oc)); Log(cnt); Log(page_cnt)
+				if cnt > page_cnt:			# Gesamtzahl erreicht - Abbruch
+					offset=0
+					break					# Schleife beenden
+				elif len(oc) >= max_count:	# Mehr, wenn max_count erreicht
+					offset = offset + max_count-1
+					title = L('Mehr...') + oc_title2_org
+					summ_mehr = L('Mehr...') + '(max.: %s)' % page_cnt
+					oc.add(DirectoryObject(
+						key = Callback(Rubriken, url=url_org, title=title, image=image, offset=offset),
+						title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
+					)) 
+					break					# Schleife beenden
 	return oc
 
 #-----------------------------
@@ -580,7 +614,7 @@ def get_pls(url):               # Playlist holen
     
 #-----------------------------
 def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werden zusammengelegt,
-	Log('get_m3u: ' + url)		#	Details holt getStreamMeta
+	Log('get_m3u: ' + url)		#	Details/Verfügbarkeit holt getStreamMeta
 	urls =url.splitlines()	
 	
 	m3u_cont = []
@@ -592,11 +626,13 @@ def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werde
 				# Log(req)	
 			except: 	
 				req=''
-			if req.startswith('http'):			# skip #EXTM3U, #EXTINF
-				m3u_cont.append(req)			# m3u-Inhalt anhängen
+			lines =req.splitlines()				# Einzelzeilen oder kompl. m3u-Datei
+			for line in lines:
+				if line.startswith('http'):			# skip #EXTM3U, #EXTINF
+					m3u_cont.append(line)			# m3u-Inhalt anhängen
 		
 	pls = m3u_cont	
-	lines = repl_dop(pls)					# häufig identische Links in verschiedenen m3u8-Inhalten, 
+	lines = repl_dop(pls)					# möglich: identische Links in verschiedenen m3u8-Inhalten, 
 	pls = '\n'.join(lines) # 				# Coolradio Jazz: coolradio1-48.m3u, coolradio1-128.m3u, coolradio1-hq.m3u
 	pls = pls.strip()
 	Log(pls[:100])
