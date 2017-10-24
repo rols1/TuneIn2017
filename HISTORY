@@ -2,7 +2,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-	
+
+24.10.2017	0.5.6	Aktualisierung Sprachdatei: Dänisch (Tommy Mikkelsen).		
 23.10.2017	0.5.5	Einstellungen / Funktion Rubriken: Option "max. Objekte/Seite", um Plugin-Blockaden durch
 			Timeouts vorzubeugen.		
 not on github	0.5.4	get_m3u: Berücksichtigung kompl. m3u-Dateien (bisher nur Einzelzeilen). 		
