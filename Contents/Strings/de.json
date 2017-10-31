@@ -23,6 +23,18 @@
 	"neuer Versuch": "neuer Versuch",
 	"neues Update beim Start des Plugins anzeigen": "neues Update beim Start des Plugins anzeigen",
 	"Sprache Plugin": "Sprache Plugin",
-	"maximale Anzahl Objekte pro Seite": "maximale Anzahl Objekte pro Seite"
+	"maximale Anzahl Objekte pro Seite": "maximale Anzahl Objekte pro Seite",
+	"Aufnehmen mit Streamripper": "Aufnehmen mit Streamripper",
+	"kompletter Pfad zum Programm Streamripper": "kompletter Pfad zum Programm Streamripper",
+	"kompletter Pfad zum Download-Verzeichnis": "kompletter Pfad zum Download-Verzeichnis",
+	"Laufende Aufnahmen": "Laufende Aufnahmen",
+	"Download-Verzeichnis": "Download-Verzeichnis",
+	"Aufnahme": "Aufnahme",
+	"beenden": "beenden",
+	"beendet": "beendet",
+	"starten": "starten",
+	"gestartet": "gestartet",
+	"fehlgeschlagen": "fehlgeschlagen",
+	"keine laufende Aufnahme gefunden": "keine laufende Aufnahme gefunden"
 }
 

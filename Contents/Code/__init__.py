@@ -1,7 +1,11 @@
 import urllib			# urllib.quote(), 
 import urllib2			# urllib2.Request
 import ssl				# HTTPS-Handshake
-import os 				# u.a. Behandlung von Pfadnamen
+
+import os, subprocess 	# u.a. Behandlung von Pfadnamen
+import shlex			# Parameter-Expansion
+import signal			# für os.kill
+import time				# Verzögerung
 import random			# Zufallswerte für rating_key
 import sys				# Plattformerkennung
 import re				# u.a. Reguläre Ausdrücke, z.B. in CalculateDuration
@@ -9,12 +13,14 @@ import json				# json -> Textstrings
 from urlparse import urlparse
 import updater
 
+import os, subprocess 	# u.a. Behandlung von Pfadnamen
+import time
 
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.5.6'		
-VDATE = '24.10.2017'
+VERSION =  '0.6.0'		
+VDATE = '31.10.2017'
 
 # 
 #	
@@ -38,7 +44,12 @@ ICON_WARNING 			= "icon-warning.png"
 ICON_NEXT 				= "icon-next.png"
 ICON_CANCEL 			= "icon-error.png"
 ICON_MEHR 				= "icon-mehr.png"
-ICON_SEARCH 			= 'ard-suche.png'						
+ICON_SEARCH 			= 'ard-suche.png'
+
+ICON_RECORD				= 'icon-record.png'						
+ICON_STOP				= 'icon-stop.png'
+MENU_RECORDS			= 'menu-records.png'
+						
 
 ICON_MAIN_UPDATER 		= 'plugin-update.png'		
 ICON_UPDATER_NEW 		= 'plugin-update-new.png'
@@ -79,7 +90,11 @@ def Start():
 	global UrlopenTimeout 		
 	UrlopenTimeout = 3			# Timeout sec, 18.10.2017 von 6 auf 3
 	
-	Dict.Reset()
+	# Dict.Reset()				# Prozessliste Record: kein Reset wg. Record-Prozessliste. 
+	if Dict['PID']:				# Dicts überleben auch PMS-Restart 
+		pass
+	else:
+		Dict['PID'] = []		
 	MyContents = Core.storage.join_path(Core.bundle_path, 'Contents')
 
 	ValidatePrefs()
@@ -180,8 +195,13 @@ def Main():
 	oc.add(DirectoryObject(key = Callback(Rubriken, url=NEWS_URL % formats, title='NEWS', image=R('menu-news.png')),	
 		title = 'NEWS', summary='NEWS', thumb = R('menu-news.png'))) 
 	 
-  
-		       
+#-----------------------------	
+	Log(Prefs['UseRecording'])
+	Log(Dict['PID'])
+	if Prefs['UseRecording'] == True:			# Recording-Option: Aufnahme-Menu bei aktiven Aufnahmen einbinden
+		if len(Dict['PID']) > 0:						
+			title = L("laufende Aufnahmen")
+			oc.add(DirectoryObject(key=Callback(RecordsList,title=title,), title=title,thumb=R(MENU_RECORDS)))			       
 #-----------------------------	
 	oc = SearchUpdate(title=NAME, start='true', oc=oc)	# Updater-Modul einbinden:
 			
@@ -418,7 +438,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 	summ = unescape(summ)
 	Log(title);Log(image);Log(summ);Log(typ);Log(bitrate)
 	title = title.decode(encoding="utf-8", errors="ignore")
-	org_title=title; summ_org=summ; bitrate_org=bitrate		# sichern
+	title_org=title; summ_org=summ; bitrate_org=bitrate; typ_org=typ		# sichern
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 	
 	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
@@ -543,14 +563,198 @@ def StationList(url, title, image, summ, typ, bitrate):
 		summ  = line.split('|||')[1]
 		server = url[:80] + '...'
 		summ  = '%s | %s' % (summ, server)
+		summ = summ.decode('utf-8')
 		
 		fmt='mp3'								# Format nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX. Ermittlung
 		if 'aac' in url:						#	 in getStreamMeta (contenttype) hier bisher nicht genutzt
 			fmt='aac'
-		title = org_title + ' | Stream %s | %s'  % (str(i), fmt)
+		title = title_org + ' | Stream %s | %s'  % (str(i), fmt)
 		i=i+1
 		Log(url)
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
+		
+	# url = letzte Url, todo: Auswahl ambieten
+	if Prefs['UseRecording'] == True:			# Aufnahme- und Stop-Button
+		title = L("Aufnahme") + ' ' + L("starten")		
+		oc.add(DirectoryObject(key=Callback(RecordStart,url=url,title=title,title_org=title_org,image=image,
+			summ=summ_org,typ=typ_org,bitrate=bitrate_org), title=title,summary=summ,thumb=R(ICON_RECORD)))
+		title = L("Aufnahme") + ' ' + L("beenden")		
+		oc.add(DirectoryObject(key=Callback(RecordStop,url=url,title=title,summ=summ_org), 
+			title=title,summary=summ,thumb=R(ICON_STOP)))
+		
+	return oc
+
+#-----------------------------
+@route(PREFIX + '/RecordStart')
+def RecordStart(url,title,title_org,image,summ,typ,bitrate):			# Aufnahme Start 
+	Log('RecordStart')
+	Log(sys.platform)
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	
+	p_prot, p_path = url.split('//')	# Url-Korrektur für streamripper bei Doppelpunkten in Url (aber nicht mit Port) 
+	Log(p_path)							#	s. https://sourceforge.net/p/streamripper/discussion/19083/thread/300b7a0f/
+	p_path = (p_path.replace('id:', 'id%23').replace('secret:', 'secret%23').replace('key:', 'key%23'))	# ev.  ergänzen
+	url_clean = '%s//%s'	% (p_prot, p_path)
+	
+	AppPath	= Prefs['StreamripperPath']
+	Log('AppPath: ' + AppPath)	 
+	AppExist = False
+	if AppPath:										# Test: PRG existent?
+		Log(os.path.exists(AppPath))
+		if 'linux' in sys.platform:					# linux2, weitere linuxe?							
+			if os.path.exists(AppPath):				
+				AppExist = True
+		else:										# für andere, spez. Windows kein Test (os.stat kann fehlschlagen)
+			AppExist = True		
+	else:
+		AppExist = False
+	if AppExist == False:
+		msg= 'Streamripper' + ' ' + L("nicht gefunden")
+		Log(msg)
+		return ObjectContainer(header=L('Fehler'), message=msg)		
+	
+	DestDir = Prefs['DownloadDir']					# bei leerem Verz. speichert Streamripper ins Heimatverz.
+	Log('DestDir: ' + DestDir)	 
+	if DestDir:
+		DestDir = DestDir.strip()
+		if os.path.exists(DestDir) == False:
+			msg= L('Download-Verzeichnis') + ' ' + L("nicht gefunden")
+			Log(msg)
+			return ObjectContainer(header=L('Fehler'), message=msg)		
+					
+	# cmd-Bsp.: streamripper http://addrad.io/4WRMHX --quiet -d /tmp 		
+	cmd = "%s %s --quiet -d %s"	% (AppPath, url_clean, DestDir)		
+	Log('cmd: ' + cmd)
+				
+	Log(sys.platform)
+	if sys.platform == 'win32':							
+		args = cmd
+	else:
+		args = shlex.split(cmd)							# ValueError: No closing quotation (1 x, Ursache n.b.)
+	Log(len(args))
+	Log(args)
+
+	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme, spez. für PHT
+		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
+		pid_url = PID_line.split('|')[1]
+		if pid_url == url:	
+			pid = PID_line.split('|')[0]		
+			summ = PID_line.split('|')[3]	
+			title_new = title_org + ': ' + L('Aufnahme') +  ' ' + L('gestartet')	# Info wg. PHT identisch mit call-Info
+			msg =  '%s:\n%s | %s | PID: %s' % (title_new, url, summ, pid)	
+			Log(Client.Platform)	
+			Log('Test existing Record: ' + msg)
+			return ObjectContainer(header=L('Info'), message=msg)
+
+	# Popen-Objekt mit Pid außerhalb nicht mehr ansprechbar (call.pid). Daher speichern wir im Dict die Prozess-ID direkt.
+	# PHT-Problem (Linux + Windows): return ObjectContainer nach Dict['PID'].append führt PHT direkt wieder hierher 
+	# 	(vor append OK) - Problem der Stackverwaltung im Framwork? Den erneuten Durchlauf von PHT fangen wir oben in 
+	#	Prüfung auf exist. Aufnahme ab.
+	call=''
+	try:
+		Log(Client.Platform)	
+		call = subprocess.Popen(args, shell=False)		# shell=False erfordert shlex-Nutzung	
+		# output,error = call.communicate()				# klemmt hier (anders als im ARD-Plugin)
+		Log('call: ' + str(call))						# Bsp. <subprocess.Popen object at 0x7f16fad2e290>
+		if str(call).find('object at') > 0:  			# subprocess.Popen object OK
+			PID_line = '%s|%s|%s|%s'	% (call.pid, url, title_org, summ) 	# Muster: 																
+			Log(PID_line)															
+			Dict['PID'].append(PID_line)				# PHT-Problem s.o.
+			Log(Dict['PID'])
+			Dict.Save()
+			title_new = L('Aufnahme') + ' ' + L('gestartet')
+			msg =  '%s: \n %s | %s | PID: %s' % (title_new, url, summ, call.pid)
+			header = L('Info')
+			Log(msg)
+			return ObjectContainer(header='Info', message=msg) 		# PHT-Problem s.o.
+			return oc
+							
+	except Exception as exception:
+		msgH = L('Fehler'); 
+		summ_new = str(exception)
+		summ_new = summ_new.decode(encoding="utf-8", errors="ignore")
+		title_new = L('Aufnahme fehlgeschlagen')
+		Log(summ_new)		
+		oc.add(DirectoryObject(
+			key = Callback(StationList, url=url, title=title, summ=summ, image=image, typ=typ, bitrate=bitrate),
+			title=title_new, summary=summ_new,thumb =R(ICON_CANCEL)))						
+		return oc
+		
+	msg = L('Aufnahme') + ' ' + L('fehlgeschlagen') + '\n' + L('Ursache unbekannt')
+	header = L('Fehler')
+	Log(msg)	
+	return ObjectContainer(header=header, message=msg) 		# nicht mit Callback(StationList) zurück - erzeugt neuen Prozess
+	
+#-----------------------------
+@route(PREFIX + '/RecordStop')
+def RecordStop(url,title,summ):			# Aufnahme Stop
+	Log('RecordStop')
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	
+	pid = ''
+	Log(Dict['PID'])
+	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
+		Log(PID_line)									# Aufbau: call|url|title_org|summ
+		pid_url = PID_line.split('|')[1]
+		if pid_url == url:
+			pid = PID_line.split('|')[0]
+			Log(pid)
+			break
+			
+	if pid == '' or int(pid) == 0:
+		if 	Client.Platform == 'Plex Home Theater':		# PHT-Problem s. RecordStart
+			msg = L('Aufnahme') + ' ' + L('beendet')
+			return ObjectContainer(header=L('Info'), message=msg)					
+		msg = url + ': ' + L('keine laufende Aufnahme gefunden')
+		return ObjectContainer(header=L('Fehler'), message=msg)					
+			
+	# Problem kill unter Linux: da wir hier Popen aus Sicherheitsgründen ohne shell ausführen, hinterlässt kill 
+	#	einen Zombie. Dies ist aber zu vernachlässigen, da aktuelle Distr. Zombies nach wenigen Sekunden autom.
+	#	entfernen. 
+	#	Alternative (für das Plugin Overkill) wäre die Verwendung von psutil (https://github.com/giampaolo/psutil) 
+	pid = int(pid)
+	try:
+		os.kill(pid, signal.SIGTERM)	# Verzicht auf running-Abfrage os.kill(pid, 0)
+		time.sleep(1)
+		if 'linux' in sys.platform:		# Windows: 	object has no attribute 'SIGKILL'						
+			os.kill(pid, signal.SIGKILL)	
+		pidExist = True
+	except OSError, err:
+		pidExist = False
+		error='Error: ' + str(err)
+		Log(error)
+						
+	if pidExist == False:
+		header=L('Fehler')
+		title_new = str(err) 
+		msg =  '%s:\n%s | %s | PID: %s' % (title_new, url, summ, pid)	
+	else:
+		header=L('Info')
+		title_new = L('Aufnahme') + ' ' + L('beendet')
+		msg =  '%s:\n%s | %s | PID: %s' % (title_new,url, summ, pid)
+			
+	Dict['PID'].remove(PID_line)	# Eintrag Prozessliste entfernen - unabhängig vom Erfolg
+	Dict.Save()						# PHT springt vor Return wieder zum Anfang RecordStop, PID_line ist entfernt
+	return ObjectContainer(header=header, message=msg)		
+					
+#-----------------------------
+@route(PREFIX + '/RecordsList')	# Liste laufender Aufnahmen mit Stop-Button - Prozess wird nicht geprüft!
+def RecordsList(title):			# title=L("laufende Aufnahmen")
+	Log('RecordsList')
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	
+	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
+		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
+		pid 	= PID_line.split('|')[0]
+		pid_url = PID_line.split('|')[1]
+		pid_sender = PID_line.split('|')[2]
+		pid_summ = PID_line.split('|')[3]
+		pid_summ = pid_summ.decode(encoding="utf-8", errors="ignore")
+		title_new = pid_sender + ' | ' + pid_summ
+		summ_new = pid_url + ' | ' + 'PID: ' + pid			
+		oc.add(DirectoryObject(key=Callback(RecordStop,url=pid_url,title=pid_sender,summ=pid_summ), title=title_new,
+			summary=summ_new, tagline=pid_url, thumb=R(ICON_STOP)))			       
+		
 	return oc
 
 #-----------------------------
@@ -720,7 +924,7 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 
 #-----------------------------
 @route(PREFIX + '/PlayAudio') 
-#	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktionert mit PMS nicht
+#	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktioniert mit PMS nicht
 def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('PlayAudio')
 		

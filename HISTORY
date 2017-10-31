@@ -3,6 +3,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+31.10.2017	0.6.0	Aufnahme-Option: parallele Aufnahmen, Aufnahmeliste-Menü. Anpassungen für PHT.
+not on github	0.5.9	Aufnahme-Option: erweitert für Windows (Anpassungen os.path.exists, os.kill, signal).
+not on github	0.5.8	Aufnahme-Option: via Streamripper, zunächst Linux
+not on github	0.5.7	Funktion StationList: utf-Dekodierung für summary-Parameter ergänzt.	
 24.10.2017	0.5.6	Aktualisierung Sprachdatei: Dänisch (Tommy Mikkelsen).		
 23.10.2017	0.5.5	Einstellungen / Funktion Rubriken: Option "max. Objekte/Seite", um Plugin-Blockaden durch
 			Timeouts vorzubeugen.		

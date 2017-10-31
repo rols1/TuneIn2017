@@ -1,34 +1,4 @@
 [
-	{	
-		"id": "InfoUpdate",
-		"label": "neues Update beim Start des Plugins anzeigen",
-		"type": "bool",
-		"default": "true"
-	},
-	{
-		"id": "PlusAAC",
-		"type": "bool",
-		"label": "Audio: plus AAC-Format",
-		"default": "true"
-	},
-	{
-		"id": 		"maxPageContent",
-		"label": 	"maximale Anzahl Objekte pro Seite",
-		"type": 	"enum",
-		"values":	[ ""
-					, "15"
-					, "25"
-					, "50"
-					, "100"
-				],
-		"default": 	  "25"
-	},    
-	{
-		"id": "username",
-		"type": "text",
-		"label": "TuneIn username",
-		"default": ""
-	},
     	{
 	        "id": "language",
 	        "type": "enum",
@@ -113,5 +83,53 @@
 	            "Vietnamese/vi",
 	            "Zulu/zu"
 			]
-        }
+        },
+	{
+		"id": "username",
+		"type": "text",
+		"label": "TuneIn username",
+		"default": ""
+	},
+	{	
+		"id": "InfoUpdate",
+		"label": "neues Update beim Start des Plugins anzeigen",
+		"type": "bool",
+		"default": "true"
+	},
+	{
+		"id": 		"maxPageContent",
+		"label": 	"maximale Anzahl Objekte pro Seite",
+		"type": 	"enum",
+		"values":	[ ""
+					, "15"
+					, "25"
+					, "50"
+					, "100"
+				],
+		"default": 	  "25"
+	},    
+	{
+		"id": "PlusAAC",
+		"type": "bool",
+		"label": "Audio: plus AAC-Format",
+		"default": "true"
+	},
+	{
+		"id": "UseRecording",
+		"type": "bool",
+		"label": "Aufnehmen mit Streamripper",
+		"default": "false"
+	},
+	{
+		"id": "StreamripperPath",
+		"type": "text",
+		"label": "kompletter Pfad zum Programm Streamripper",
+		"default": "/usr/bin/streamripper"
+	},
+	{
+		"id": "DownloadDir",
+		"type": "text",
+		"label": "kompletter Pfad zum Download-Verzeichnis",
+		"default": "/tmp"
+	}
 ]
