@@ -22,5 +22,17 @@
 	"Mehr...": "Mere...",
 	"neues Update beim Start des Plugins anzeigen": "Kig efter opdateringer under startup",
 	"Sprache Plugin": "Tilgængelige sprog",
-	"maximale Anzahl Objekte pro Seite": "Maksimum antal visninger pr. side"
+	"maximale Anzahl Objekte pro Seite": "Maksimum antal visninger pr. side",
+	"Aufnehmen mit Streamripper": "Optagelser af Streamripper",
+	"kompletter Pfad zum Programm Streamripper": "komplet sti til programmet Streamripper",
+	"kompletter Pfad zum Download-Verzeichnis": "komplet sti til download bibliotek",
+	"Laufende Aufnahmen": "Igangværende optagelser",
+	"Download-Verzeichnis": "Download bibliotek",
+	"Aufnahme": "Optager",
+	"beenden": "stop",
+	"beendet": "afsluttet",
+	"starten": "start",
+	"gestartet": "startet",
+	"fehlgeschlagen": "fejlet",
+	"keine laufende Aufnahme gefunden": "ingen igangværende optagelser fundet"
 }

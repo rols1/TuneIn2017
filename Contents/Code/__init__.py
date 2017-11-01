@@ -19,8 +19,8 @@ import time
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.6.0'		
-VDATE = '31.10.2017'
+VERSION =  '0.6.1'		
+VDATE = '01.11.2017'
 
 # 
 #	
