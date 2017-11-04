@@ -3,6 +3,7 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+04.11.2017	0.6.2	Update Language: French (Joyfik).
 01.11.2017	0.6.1	Aktualisierung Sprachdatei: Dänisch (Tommy Mikkelsen).
 31.10.2017	0.6.0	Aufnahme-Option: parallele Aufnahmen, Aufnahmeliste-Menü. Anpassungen für PHT.
 not on github	0.5.9	Aufnahme-Option: erweitert für Windows (Anpassungen os.path.exists, os.kill, signal).

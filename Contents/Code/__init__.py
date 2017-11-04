@@ -19,8 +19,8 @@ import time
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.6.1'		
-VDATE = '01.11.2017'
+VERSION =  '0.6.2'		
+VDATE = '04.11.2017'
 
 # 
 #	
@@ -106,7 +106,7 @@ def Start():
 #						https://forums.plex.tv/discussion/comment/838061/#Comment_838061
 #						Bsp. de.json-String: "Durchstoebern": "Durchstöbern" (Umlaute nur im 2. Teil!)
 def ValidatePrefs():	
-	lang = Prefs['language'].split('/')
+	lang = Prefs['language'].split('/') # Format Bsp.: "Danish/da/da-DA/Author Tommy Mikkelsen"
 	try:
 		loc 		= str(lang[1])		# de
 		loc_browser = loc
@@ -585,14 +585,16 @@ def StationList(url, title, image, summ, typ, bitrate):
 	return oc
 
 #-----------------------------
+# **kwargs erforderlich für unerwartete Parameter, z.B.  checkFiles (ext. Webplayer)
 @route(PREFIX + '/RecordStart')
-def RecordStart(url,title,title_org,image,summ,typ,bitrate):			# Aufnahme Start 
+def RecordStart(url,title,title_org,image,summ,typ,bitrate, **kwargs):			# Aufnahme Start 
 	Log('RecordStart')
 	Log(sys.platform)
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 	
 	p_prot, p_path = url.split('//')	# Url-Korrektur für streamripper bei Doppelpunkten in Url (aber nicht mit Port) 
 	Log(p_path)							#	s. https://sourceforge.net/p/streamripper/discussion/19083/thread/300b7a0f/
+										#	dagegen wird ; akzeptiert, Bsp. ..tunein;skey..
 	p_path = (p_path.replace('id:', 'id%23').replace('secret:', 'secret%23').replace('key:', 'key%23'))	# ev.  ergänzen
 	url_clean = '%s//%s'	% (p_prot, p_path)
 	
@@ -687,7 +689,7 @@ def RecordStart(url,title,title_org,image,summ,typ,bitrate):			# Aufnahme Start
 	
 #-----------------------------
 @route(PREFIX + '/RecordStop')
-def RecordStop(url,title,summ):			# Aufnahme Stop
+def RecordStop(url,title,summ, **kwargs):			# Aufnahme Stop
 	Log('RecordStop')
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 	

@@ -29,6 +29,7 @@ https://github.com/rols1/TuneIn2017/wiki/TuneIn2017---Pictures-for-the-Localisat
 * Tommy Mikkelsen - Danish
 * Przemo - Polish
 * Vlad - Ukrainian
+* Joyfik - French
 
 UPDATES:
 ===================  
