@@ -2,7 +2,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-
+08.11.2017	0.6.4	Inline-Doku aktualisiert (Recording-Funktionen, Auswertung der Streamlinks in StationList).
+			Aktualisierung Sprachdatei Polnisch + Ukrainisch (unfertig).	
+not on github	0.6.3	Recording-Funktion: div. Tests mit Stop-Funktion als Thread - wieder entfernt (keine
+			Verbesserung)
 04.11.2017	0.6.2	Update Language: French (Joyfik).
 01.11.2017	0.6.1	Aktualisierung Sprachdatei: Dänisch (Tommy Mikkelsen).
 31.10.2017	0.6.0	Aufnahme-Option: parallele Aufnahmen, Aufnahmeliste-Menü. Anpassungen für PHT.

@@ -22,5 +22,18 @@
 	"Mehr...": "Więcej...",
 	"neuer Versuch": "spróbuj ponownie",
 	"neues Update beim Start des Plugins anzeigen": "Sprawdź aktualizacje podczas uruchomienia wtyczki",
-	"Sprache Plugin": "wersja językowa wtyczki"
+	"Sprache Plugin": "wersja językowa wtyczki",
+	"maximale Anzahl Objekte pro Seite": "maximum number of items per page",
+	"Aufnehmen mit Streamripper": "Recordings by Streamripper",
+	"kompletter Pfad zum Programm Streamripper": "complete path to program Streamripper",
+	"kompletter Pfad zum Download-Verzeichnis": "complete path to Download-Directory",
+	"Laufende Aufnahmen": "Running Recordings",
+	"Download-Verzeichnis": "Download-Directory",
+	"Aufnahme": "Recording",
+	"beenden": "stop",
+	"beendet": "terminated",
+	"starten": "start",
+	"gestartet": "started",
+	"fehlgeschlagen": "failed",
+	"keine laufende Aufnahme gefunden": "no running recording found"
 }

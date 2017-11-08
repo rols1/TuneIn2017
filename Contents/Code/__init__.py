@@ -19,8 +19,8 @@ import time
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.6.2'		
-VDATE = '04.11.2017'
+VERSION =  '0.6.4'		
+VDATE = '08.11.2017'
 
 # 
 #	
@@ -110,7 +110,7 @@ def ValidatePrefs():
 	try:
 		loc 		= str(lang[1])		# de
 		loc_browser = loc
-		if len(lang) == 3:
+		if len(lang) > 2:
 			loc_browser = str(lang[2])	# de-DE - Konkretisierung, falls vorhanden
 	except:
 		loc 		= 'en-us'
@@ -355,7 +355,7 @@ def Rubriken(url, title, image, offset=0):
 
 			text = text.decode(encoding="utf-8", errors="ignore")
 			subtext = subtext.decode(encoding="utf-8", errors="ignore")
-			
+						
 			if typ == 'link':									# bitrate hier n.b.
 				oc.add(DirectoryObject(
 					key = Callback(Rubriken, url=local_url, title=text, image=image, offset=0),
@@ -384,7 +384,7 @@ def Rubriken(url, title, image, offset=0):
 				# Log(local_url)		# bei Bedarf
 				oc.add(DirectoryObject(
 					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
-					title = text, summary=subtext,  tagline=tagline, thumb = image 
+					title=text, summary=subtext, tagline=tagline, thumb=image 	
 				)) 
 				 
 			if max_count:
@@ -424,13 +424,21 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 #-----------------------------
 # Auswertung der Streamlinks:
 #	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
-#	2. Test Inhalt von Tune.ashx auf Playlist-Datei (.pls) - Details siehe get_pls
-#	3. Behandlung der url-Liste:
-#		3.1. falls .m3u8-Datei: Inhalte laden, verketten, Doppler entfernen
-#		3.2. Streamlinks der einzelnen Playlist-Einträge extrahieren
-#		3.3. Behandlung von Sonderfällen, Metaden div. Streamingdienste (getStreamMeta - zeitaufwendig) 
-#	4. letzte Doppler in der url-Liste entfernen
+#	2. Test Inhalt von Tune.ashx auf Playlist-Datei (.pls) -
+#		2.1. Playlist (.pls oder/und .m3u) laden, bei Problemen mittels urllib2 + Zertifikat
+#		2.2. Streamlinks aus Playlist extrahieren -> in url-Liste
+#		2.3. Doppler entfernen
+#	3. Test Inhalt von Tune.ashx auf .m3u-Datei (Ergebnis überschreibt url-Liste, falls vorh.)
+#		Ablauf wie .pls-Url, aber ohne urllib2 (nicht erforderl. bisher)
+#	4. Behandlung der url-Liste:
+#		4.1. .mp3-Links markieren (ohne Metaprüfung)
+#		4.2. Prüfung der Metadaten (getStreamMeta - zeitaufwendig) 
+#			4.2.1 Ermittlung Bitrate, Song - falls leer, mit tunein-Daten ergänzen
+#			4.2.2 Prüfung auf angehängte Portnummer - url-Ergänzung mit ';' oder '/;'
+#			4.2.3 Prüfung auf Endung '.fm/' - url-Ergänzung mit ';' 
+#		4.3. letzte Doppler in der url-Liste entfernen
 #	5. Aufbau des TrackObjects mit den einzelnen Url's der Liste
+#	5.1. Bei Option UseRecording: Erstellung Recording- und Stop-Button
 #
 @route(PREFIX + '/StationList')
 def StationList(url, title, image, summ, typ, bitrate):
@@ -581,7 +589,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 		title = L("Aufnahme") + ' ' + L("beenden")		
 		oc.add(DirectoryObject(key=Callback(RecordStop,url=url,title=title,summ=summ_org), 
 			title=title,summary=summ,thumb=R(ICON_STOP)))
-		
+			
 	return oc
 
 #-----------------------------
@@ -660,7 +668,7 @@ def RecordStart(url,title,title_org,image,summ,typ,bitrate, **kwargs):			# Aufna
 		Log('call: ' + str(call))						# Bsp. <subprocess.Popen object at 0x7f16fad2e290>
 		if str(call).find('object at') > 0:  			# subprocess.Popen object OK
 			PID_line = '%s|%s|%s|%s'	% (call.pid, url, title_org, summ) 	# Muster: 																
-			Log(PID_line)															
+			Log(PID_line)	
 			Dict['PID'].append(PID_line)				# PHT-Problem s.o.
 			Log(Dict['PID'])
 			Dict.Save()
@@ -713,6 +721,7 @@ def RecordStop(url,title,summ, **kwargs):			# Aufnahme Stop
 	# Problem kill unter Linux: da wir hier Popen aus Sicherheitsgründen ohne shell ausführen, hinterlässt kill 
 	#	einen Zombie. Dies ist aber zu vernachlässigen, da aktuelle Distr. Zombies nach wenigen Sekunden autom.
 	#	entfernen. 
+	#	Auch call.terminate() in einem Thread (Thread StreamripperStop wieder entfernt) hinterlässt Zombies.
 	#	Alternative (für das Plugin Overkill) wäre die Verwendung von psutil (https://github.com/giampaolo/psutil) 
 	pid = int(pid)
 	try:
@@ -756,7 +765,7 @@ def RecordsList(title):			# title=L("laufende Aufnahmen")
 		summ_new = pid_url + ' | ' + 'PID: ' + pid			
 		oc.add(DirectoryObject(key=Callback(RecordStop,url=pid_url,title=pid_sender,summ=pid_summ), title=title_new,
 			summary=summ_new, tagline=pid_url, thumb=R(ICON_STOP)))			       
-		
+	
 	return oc
 
 #-----------------------------
