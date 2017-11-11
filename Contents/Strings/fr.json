@@ -35,6 +35,7 @@
 	"starten": "commencer",
 	"gestartet": "démarré",
 	"fehlgeschlagen": "échoué",
-	"keine laufende Aufnahme gefunden": "aucun enregistrement en cours trouvé"
+	"keine laufende Aufnahme gefunden": "aucun enregistrement en cours trouvé",
+	"Ursache unbekannt": "unknown cause"
 }
 

@@ -35,5 +35,6 @@
 	"starten": "start",
 	"gestartet": "started",
 	"fehlgeschlagen": "failed",
-	"keine laufende Aufnahme gefunden": "no running recording found"
+	"keine laufende Aufnahme gefunden": "no running recording found",
+	"Ursache unbekannt": "unknown cause"
 }

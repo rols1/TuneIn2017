@@ -10,17 +10,15 @@ import random			# Zufallswerte für rating_key
 import sys				# Plattformerkennung
 import re				# u.a. Reguläre Ausdrücke, z.B. in CalculateDuration
 import json				# json -> Textstrings
-from urlparse import urlparse
-import updater
+from urlparse import urlparse # Check Portnummer in Url
 
-import os, subprocess 	# u.a. Behandlung von Pfadnamen
-import time
+import updater
 
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.6.4'		
-VDATE = '08.11.2017'
+VERSION =  '0.6.5'		
+VDATE = '11.11.2017'
 
 # 
 #	
@@ -213,15 +211,24 @@ def Main():
 	return oc
 						
 #----------------------------------------------------------------
+# LangTest testet aktuelle Plugin-Sprachdatei, z.B. en.json (Lang_Test=True).
+#	Ausgabe von Buttons: Titel = Deutsch, summary = gewählte Sprache
 @route(PREFIX + '/LangTest')
-def LangTest():										# testet aktuelle Plugin-Sprachdatei, z.B. en.json
+def LangTest():										
 	Log('LangTest')	
 	title = 'LangTest: %s' % Dict['loc'] 
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
-	de_strings =  Resource.Load('de.csv')			# Basis German de
+	verz = Core.storage.abs_path(Core.storage.join_path(MyContents, 'Strings', 'de.json')) # Basis German de
+	de_strings = Core.storage.load(verz)		
+	
 	de_strings = de_strings.split('\n')
 	for string in de_strings:
+		string = string.split(':')[0]				# 1. Paar-Teil
+		string = string.replace('"', '')
+		string = string.replace('}', '')
+		string = string.replace('{', '')
 		string = string.strip()
+		Log(string)
 		if string:
 			title = string
 			summ = L(title)							# czukowski-Lösung	
@@ -676,7 +683,7 @@ def RecordStart(url,title,title_org,image,summ,typ,bitrate, **kwargs):			# Aufna
 			msg =  '%s: \n %s | %s | PID: %s' % (title_new, url, summ, call.pid)
 			header = L('Info')
 			Log(msg)
-			return ObjectContainer(header='Info', message=msg) 		# PHT-Problem s.o.
+			return ObjectContainer(header=L('Info'), message=msg) 		# PHT-Problem s.o.
 			return oc
 							
 	except Exception as exception:
@@ -753,6 +760,7 @@ def RecordStop(url,title,summ, **kwargs):			# Aufnahme Stop
 def RecordsList(title):			# title=L("laufende Aufnahmen")
 	Log('RecordsList')
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	oc = home(oc)					
 	
 	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
 		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
