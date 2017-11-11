@@ -17,7 +17,7 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.6.5'		
+VERSION =  '0.6.6'		
 VDATE = '11.11.2017'
 
 # 

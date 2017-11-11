@@ -2,8 +2,9 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+11.11.2017	0.6.6	Update language-files: Polish (Przemo), Danish (Tommy Mikkelsen).
 11.11.2017	0.6.5	Update language-file: Ukrainian (Vlad).
-			LangTest: testfile now de.json (previos de.csv - redundant)
+			LangTest: testfile now de.json (previos de.csv - redundant).
 			RecordsList: Home-Button added.
 08.11.2017	0.6.4	Inline-Doku aktualisiert (Recording-Funktionen, Auswertung der Streamlinks in StationList).
 			Aktualisierung Sprachdatei Polnisch + Ukrainisch (unfertig).	
