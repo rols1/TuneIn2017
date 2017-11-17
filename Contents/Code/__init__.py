@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.6.6'		
-VDATE = '11.11.2017'
+VERSION =  '0.7.0'		
+VDATE = '17.11.2017'
 
 # 
 #	
@@ -47,6 +47,11 @@ ICON_SEARCH 			= 'ard-suche.png'
 ICON_RECORD				= 'icon-record.png'						
 ICON_STOP				= 'icon-stop.png'
 MENU_RECORDS			= 'menu-records.png'
+ICON_FAV_ADD			= 'fav_add.png'
+ICON_FAV_REMOVE			= 'fav_remove.png'
+ICON_FAV_MOVE			= 'fav_move.png'
+ICON_FOLDER_ADD			= 'folder_add.png'
+ICON_FOLDER_REMOVE		= 'folder_remove.png'
 						
 
 ICON_MAIN_UPDATER 		= 'plugin-update.png'		
@@ -69,6 +74,12 @@ PREFIX 		= '/music/tunein2017'
 REPO_NAME		 	= NAME
 GITHUB_REPOSITORY 	= 'rols1/' + REPO_NAME
 REPO_URL 			= 'https://github.com/{0}/releases/latest'.format(GITHUB_REPOSITORY)
+
+
+# Globale Variablen für Tunein:
+partnerId		= 'RadioTime'
+itemUrlScheme 	= 'secure'
+build			= '1.30.0'
 
 
 ####################################################################################################
@@ -154,12 +165,16 @@ def Main():
 	oc.add(InputDirectoryObject(key=Callback(Search), title=u'%s' % L('Suche'), prompt=u'%s' % L('Suche Station / Titel'), 
 		thumb=R(ICON_SEARCH)))
 		
-	username = Prefs['username']	
-	# Log(username)														# privat! nur für lokale Tests
+	username = Prefs['username']										# Privat - nicht loggen
+	passwort = Prefs['passwort']										# dto.
+	if Dict['serial'] == None:
+		Dict['serial'] = serial_random()								# eindeutige serial-ID für Tunein für Favoriten u.ä.
+		Log('serial-ID erzeugt')										# 	wird nach Löschen Plugin-Cache neu erzeugt
+	Log('serial-ID: ' + Dict['serial'])												
 
 	if username:
 		my_title = u'%s' % L('Meine Favoriten')
-		my_url = USER_URL % username
+		my_url = USER_URL % username									# serial hier auch statt username möglich
 		oc.add(DirectoryObject(
 			key = Callback(Rubriken, url=my_url, title=my_title, image=ICON),
 			title = my_title, thumb = R(ICON) 
@@ -181,7 +196,7 @@ def Main():
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 	rubriken = blockextract('<outline', page)
 	for rubrik in rubriken:							# bitrate hier n.b.
-		typ,local_url,text,image,key,subtext,bitrate= get_details(line=rubrik)	# xml extrahieren
+		typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
 		text = text.decode(encoding="utf-8", errors="ignore")
 		subtext = subtext.decode(encoding="utf-8", errors="ignore")	
 		thumb = getMenuIcon(key)
@@ -303,7 +318,12 @@ def Rubriken(url, title, image, offset=0):
 	req = urllib2.Request(url)					# xml-Übersicht Rubriken
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
 	ret = urllib2.urlopen(req)
-	page = ret.read()	
+	
+	#headers = getHeaders(ret)						# Headeres bei Bedarf
+	#headers = ret.headers.dict						
+	#Log(headers)
+		
+	page = ret.read()
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 		
 	status  = stringextract('<status>', '</status>', page)
@@ -314,7 +334,11 @@ def Rubriken(url, title, image, offset=0):
 		summary = 'Username ueberpruefen'		
 		summary = L(summary)
 		oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summary, thumb=R(ICON_CANCEL)))
-		return oc			
+		return oc	
+	
+	if status == '200' and 'URL=' not in page:		# leerer Inhalt, Bsp. neuer Ordner
+		msg = L('keine Eintraege gefunden') 		
+		return ObjectContainer(header=L('Info'), message=msg)			
 		
 	oc_title2 = stringextract('<title>', '</title>', page)	# Bsp. <title>Frankfurt am Main</title>
 	oc_title2 = unescape(oc_title2)
@@ -355,7 +379,7 @@ def Rubriken(url, title, image, offset=0):
 		Log(page_cnt); Log(len(rubriken))
 		
 		for rubrik in rubriken:			
-			typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
+			typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
 			# Log(local_url)		# bei Bedarf
 			# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
 			# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
@@ -379,18 +403,19 @@ def Rubriken(url, title, image, offset=0):
 				# Sonderfall: Station wird als nicht unterstützt ausgegeben, aber im Web/App gespielt. Hier
 				#	versuchen wir den Zugriff auf die Playlist via preset_id (Analyse Chrome-HAR).
 				if key == "unavailable":							# Bsp. Buddha Hits mit url -> notcompatible.enUS.mp3
-					preset_id  = stringextract('preset_id="', '"', rubrik)
 					new_text 	= text + ' | ' + L("neuer Versuch")
 					new_subtext = subtext + ' | ' + L("neuer Versuch")
 					new_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=mp3,aac' % preset_id
 					oc.add(DirectoryObject(
-						key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate),
+						key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate,
+						preset_id=preset_id),
 						title = new_text, summary=new_subtext,  tagline=tagline, thumb = image 
 					))  				
 					
 				# Log(local_url)		# bei Bedarf
 				oc.add(DirectoryObject(
-					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
+					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
+					preset_id=preset_id),
 					title=text, summary=subtext, tagline=tagline, thumb=image 	
 				)) 
 				 
@@ -410,19 +435,40 @@ def Rubriken(url, title, image, offset=0):
 						title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
 					)) 
 					break					# Schleife beenden
-	return oc
+					
+		if 'c=presets' in url_org:			# Ordner-Funktionen in Favoriten anhängen
+			if Prefs['UseFavourites']:
+				title = L('Neuer Ordner fuer Favoriten') 
+				foldername = str(Prefs['folder'])
+				summ = L('Name des neuen Ordners') + ': ' + foldername
+				oc.add(DirectoryObject(
+					key = Callback(Folder, ID='addFolder', title=title, foldername=foldername, folderId='dummy'),
+					title = title, summary=summ, thumb=R(ICON_FOLDER_ADD) 
+				)) 
+				
+				sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='foldercnt')
+				Log('foldercnt: ' + foldercnt)
+				if foldercnt > '1':			# Löschbutton -> Liste - 1. Ordner General nicht löschen
+					title = L('Ordner entfernen') 
+					summ = L('Ordner zum Entfernen auswaehlen')
+					oc.add(DirectoryObject(
+						key = Callback(FolderMenu, title=title, ID='removeFolder', preset_id='dummy'), 
+						title = title, summary=summ, thumb=R(ICON_FOLDER_REMOVE) 
+					)) 								
 
+	return oc
 #-----------------------------
 def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	Log('get_presetUrls')
 	rubriken = blockextract('<outline type', outline)	# restliche outlines 
 	for rubrik in rubriken:	 # presetUrls ohne bitrate + subtext, type=link. Behandeln wie typ == 'audio'
-		typ,local_url,text,image,key,subtext,bitrate = get_details(line=rubrik)	# xml extrahieren
+		typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
 		subtext = 'CustomURL'
 		bitrate = 'unknown'		# dummy für PHT
 		typ = 'unknown'			# dummy für PHT
 		oc.add(DirectoryObject(
-			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate),
+			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
+			preset_id=preset_id),
 			title = text, summary=subtext,  tagline=local_url, thumb = image 
 		))  
 	Log(len(oc))	
@@ -448,13 +494,13 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 #	5.1. Bei Option UseRecording: Erstellung Recording- und Stop-Button
 #
 @route(PREFIX + '/StationList')
-def StationList(url, title, image, summ, typ, bitrate):
+def StationList(url, title, image, summ, typ, bitrate, preset_id):
 	Log('StationList: ' + url)
 	summ = unescape(summ)
-	Log(title);Log(image);Log(summ);Log(typ);Log(bitrate)
+	Log(title);Log(image);Log(summ);Log(typ);Log(bitrate);Log(preset_id)
 	title = title.decode(encoding="utf-8", errors="ignore")
 	title_org=title; summ_org=summ; bitrate_org=bitrate; typ_org=typ		# sichern
-	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)
 	
 	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
 	client = Client.Platform
@@ -488,7 +534,7 @@ def StationList(url, title, image, summ, typ, bitrate):
 	# .pls-Auswertung ziehen wir vor, auch wenn (vereinzelt) .m3u-Links enthalten sein können
 	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist (.pls, .m3u)				
 		cont = get_pls(cont)
-		if cont.startswith('Servermessage'): 						# Bsp. Rolling Stones by Radio UNO Digital, pls-Url: 
+		if cont.startswith('Servermessage3'): 						# Bsp. Rolling Stones by Radio UNO Digital, pls-Url: 
 			cont = cont.decode(encoding="utf-8", errors="ignore")	# http://radiounodigital.com/Players-Tunein/rollingstones.pls
 			return ObjectContainer(header=L('Fehler'), message=cont)
 	
@@ -588,7 +634,6 @@ def StationList(url, title, image, summ, typ, bitrate):
 		Log(url)
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
 		
-	# url = letzte Url, todo: Auswahl ambieten
 	if Prefs['UseRecording'] == True:			# Aufnahme- und Stop-Button
 		title = L("Aufnahme") + ' ' + L("starten")		
 		oc.add(DirectoryObject(key=Callback(RecordStart,url=url,title=title,title_org=title_org,image=image,
@@ -597,185 +642,29 @@ def StationList(url, title, image, summ, typ, bitrate):
 		oc.add(DirectoryObject(key=Callback(RecordStop,url=url,title=title,summ=summ_org), 
 			title=title,summary=summ,thumb=R(ICON_STOP)))
 			
-	return oc
+	if Prefs['UseFavourites'] == True:			# Favorit hinzufügen/Löschen
+		sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='preset_id') # vorhanden, Ordner?
+		Log('sidExist: ' + str(sidExist))
+		Log('foldername: ' + foldername)
+		Log('foldercnt: ' + foldercnt)
+		Log(summ)
+		summ =title_org	+ ' | ' + L('Ordner') + ': ' + 	foldername	# hier nur Station + Ordner angeben, Server + Song entfallen
+		if sidExist == False:		
+			title = L("Favorit") + ' ' + L("hinzufuegen")	# hinzufuegen immer in Ordner General	
+			oc.add(DirectoryObject(key=Callback(Favourit, ID='add', preset_id=preset_id, folderId='dummy'), 
+				title=title,summary=summ,thumb=R(ICON_FAV_ADD)))
+		if sidExist == True:	
+			title = L("Favorit") + ' ' + L("entfernen")		
+			oc.add(DirectoryObject(key=Callback(Favourit, ID='remove', preset_id=preset_id, folderId='dummy'), 
+				title=title,summary=summ,thumb=R(ICON_FAV_REMOVE)))
 
-#-----------------------------
-# **kwargs erforderlich für unerwartete Parameter, z.B.  checkFiles (ext. Webplayer)
-@route(PREFIX + '/RecordStart')
-def RecordStart(url,title,title_org,image,summ,typ,bitrate, **kwargs):			# Aufnahme Start 
-	Log('RecordStart')
-	Log(sys.platform)
-	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
-	
-	p_prot, p_path = url.split('//')	# Url-Korrektur für streamripper bei Doppelpunkten in Url (aber nicht mit Port) 
-	Log(p_path)							#	s. https://sourceforge.net/p/streamripper/discussion/19083/thread/300b7a0f/
-										#	dagegen wird ; akzeptiert, Bsp. ..tunein;skey..
-	p_path = (p_path.replace('id:', 'id%23').replace('secret:', 'secret%23').replace('key:', 'key%23'))	# ev.  ergänzen
-	url_clean = '%s//%s'	% (p_prot, p_path)
-	
-	AppPath	= Prefs['StreamripperPath']
-	Log('AppPath: ' + AppPath)	 
-	AppExist = False
-	if AppPath:										# Test: PRG existent?
-		Log(os.path.exists(AppPath))
-		if 'linux' in sys.platform:					# linux2, weitere linuxe?							
-			if os.path.exists(AppPath):				
-				AppExist = True
-		else:										# für andere, spez. Windows kein Test (os.stat kann fehlschlagen)
-			AppExist = True		
-	else:
-		AppExist = False
-	if AppExist == False:
-		msg= 'Streamripper' + ' ' + L("nicht gefunden")
-		Log(msg)
-		return ObjectContainer(header=L('Fehler'), message=msg)		
-	
-	DestDir = Prefs['DownloadDir']					# bei leerem Verz. speichert Streamripper ins Heimatverz.
-	Log('DestDir: ' + DestDir)	 
-	if DestDir:
-		DestDir = DestDir.strip()
-		if os.path.exists(DestDir) == False:
-			msg= L('Download-Verzeichnis') + ' ' + L("nicht gefunden")
-			Log(msg)
-			return ObjectContainer(header=L('Fehler'), message=msg)		
-					
-	# cmd-Bsp.: streamripper http://addrad.io/4WRMHX --quiet -d /tmp 		
-	cmd = "%s %s --quiet -d %s"	% (AppPath, url_clean, DestDir)		
-	Log('cmd: ' + cmd)
-				
-	Log(sys.platform)
-	if sys.platform == 'win32':							
-		args = cmd
-	else:
-		args = shlex.split(cmd)							# ValueError: No closing quotation (1 x, Ursache n.b.)
-	Log(len(args))
-	Log(args)
-
-	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme, spez. für PHT
-		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
-		pid_url = PID_line.split('|')[1]
-		if pid_url == url:	
-			pid = PID_line.split('|')[0]		
-			summ = PID_line.split('|')[3]	
-			title_new = title_org + ': ' + L('Aufnahme') +  ' ' + L('gestartet')	# Info wg. PHT identisch mit call-Info
-			msg =  '%s:\n%s | %s | PID: %s' % (title_new, url, summ, pid)	
-			Log(Client.Platform)	
-			Log('Test existing Record: ' + msg)
-			return ObjectContainer(header=L('Info'), message=msg)
-
-	# Popen-Objekt mit Pid außerhalb nicht mehr ansprechbar (call.pid). Daher speichern wir im Dict die Prozess-ID direkt.
-	# PHT-Problem (Linux + Windows): return ObjectContainer nach Dict['PID'].append führt PHT direkt wieder hierher 
-	# 	(vor append OK) - Problem der Stackverwaltung im Framwork? Den erneuten Durchlauf von PHT fangen wir oben in 
-	#	Prüfung auf exist. Aufnahme ab.
-	call=''
-	try:
-		Log(Client.Platform)	
-		call = subprocess.Popen(args, shell=False)		# shell=False erfordert shlex-Nutzung	
-		# output,error = call.communicate()				# klemmt hier (anders als im ARD-Plugin)
-		Log('call: ' + str(call))						# Bsp. <subprocess.Popen object at 0x7f16fad2e290>
-		if str(call).find('object at') > 0:  			# subprocess.Popen object OK
-			PID_line = '%s|%s|%s|%s'	% (call.pid, url, title_org, summ) 	# Muster: 																
-			Log(PID_line)	
-			Dict['PID'].append(PID_line)				# PHT-Problem s.o.
-			Log(Dict['PID'])
-			Dict.Save()
-			title_new = L('Aufnahme') + ' ' + L('gestartet')
-			msg =  '%s: \n %s | %s | PID: %s' % (title_new, url, summ, call.pid)
-			header = L('Info')
-			Log(msg)
-			return ObjectContainer(header=L('Info'), message=msg) 		# PHT-Problem s.o.
-			return oc
-							
-	except Exception as exception:
-		msgH = L('Fehler'); 
-		summ_new = str(exception)
-		summ_new = summ_new.decode(encoding="utf-8", errors="ignore")
-		title_new = L('Aufnahme fehlgeschlagen')
-		Log(summ_new)		
-		oc.add(DirectoryObject(
-			key = Callback(StationList, url=url, title=title, summ=summ, image=image, typ=typ, bitrate=bitrate),
-			title=title_new, summary=summ_new,thumb =R(ICON_CANCEL)))						
-		return oc
+			title = L("Favorit") + ' ' + L("verschieben")	# preset_number ist Position im Ordner
+			summ = L('Ordner zum Verschieben auswaehlen')				
+			oc.add(DirectoryObject(key=Callback(FolderMenu, title=title, ID='moveto', preset_id=preset_id), 
+				title = title, summary=summ, thumb=R(ICON_FAV_MOVE) 
+			)) 								
 		
-	msg = L('Aufnahme') + ' ' + L('fehlgeschlagen') + '\n' + L('Ursache unbekannt')
-	header = L('Fehler')
-	Log(msg)	
-	return ObjectContainer(header=header, message=msg) 		# nicht mit Callback(StationList) zurück - erzeugt neuen Prozess
-	
-#-----------------------------
-@route(PREFIX + '/RecordStop')
-def RecordStop(url,title,summ, **kwargs):			# Aufnahme Stop
-	Log('RecordStop')
-	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
-	
-	pid = ''
-	Log(Dict['PID'])
-	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
-		Log(PID_line)									# Aufbau: call|url|title_org|summ
-		pid_url = PID_line.split('|')[1]
-		if pid_url == url:
-			pid = PID_line.split('|')[0]
-			Log(pid)
-			break
-			
-	if pid == '' or int(pid) == 0:
-		if 	Client.Platform == 'Plex Home Theater':		# PHT-Problem s. RecordStart
-			msg = L('Aufnahme') + ' ' + L('beendet')
-			return ObjectContainer(header=L('Info'), message=msg)					
-		msg = url + ': ' + L('keine laufende Aufnahme gefunden')
-		return ObjectContainer(header=L('Fehler'), message=msg)					
-			
-	# Problem kill unter Linux: da wir hier Popen aus Sicherheitsgründen ohne shell ausführen, hinterlässt kill 
-	#	einen Zombie. Dies ist aber zu vernachlässigen, da aktuelle Distr. Zombies nach wenigen Sekunden autom.
-	#	entfernen. 
-	#	Auch call.terminate() in einem Thread (Thread StreamripperStop wieder entfernt) hinterlässt Zombies.
-	#	Alternative (für das Plugin Overkill) wäre die Verwendung von psutil (https://github.com/giampaolo/psutil) 
-	pid = int(pid)
-	try:
-		os.kill(pid, signal.SIGTERM)	# Verzicht auf running-Abfrage os.kill(pid, 0)
-		time.sleep(1)
-		if 'linux' in sys.platform:		# Windows: 	object has no attribute 'SIGKILL'						
-			os.kill(pid, signal.SIGKILL)	
-		pidExist = True
-	except OSError, err:
-		pidExist = False
-		error='Error: ' + str(err)
-		Log(error)
-						
-	if pidExist == False:
-		header=L('Fehler')
-		title_new = str(err) 
-		msg =  '%s:\n%s | %s | PID: %s' % (title_new, url, summ, pid)	
-	else:
-		header=L('Info')
-		title_new = L('Aufnahme') + ' ' + L('beendet')
-		msg =  '%s:\n%s | %s | PID: %s' % (title_new,url, summ, pid)
-			
-	Dict['PID'].remove(PID_line)	# Eintrag Prozessliste entfernen - unabhängig vom Erfolg
-	Dict.Save()						# PHT springt vor Return wieder zum Anfang RecordStop, PID_line ist entfernt
-	return ObjectContainer(header=header, message=msg)		
-					
-#-----------------------------
-@route(PREFIX + '/RecordsList')	# Liste laufender Aufnahmen mit Stop-Button - Prozess wird nicht geprüft!
-def RecordsList(title):			# title=L("laufende Aufnahmen")
-	Log('RecordsList')
-	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
-	oc = home(oc)					
-	
-	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
-		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
-		pid 	= PID_line.split('|')[0]
-		pid_url = PID_line.split('|')[1]
-		pid_sender = PID_line.split('|')[2]
-		pid_summ = PID_line.split('|')[3]
-		pid_summ = pid_summ.decode(encoding="utf-8", errors="ignore")
-		title_new = pid_sender + ' | ' + pid_summ
-		summ_new = pid_url + ' | ' + 'PID: ' + pid			
-		oc.add(DirectoryObject(key=Callback(RecordStop,url=pid_url,title=pid_sender,summ=pid_summ), title=title_new,
-			summary=summ_new, tagline=pid_url, thumb=R(ICON_STOP)))			       
-	
 	return oc
-
 #-----------------------------
 def get_pls(url):               # Playlist holen
 	Log('get_pls: ' + url)
@@ -875,6 +764,7 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 	key	 		= stringextract('key="', '"', line)
 	subtext 	= stringextract('subtext="', '"', line)
 	bitrate 	= stringextract('bitrate="', '"', line)
+	preset_id  = stringextract('preset_id="', '"', line)
 	# itemAttr	= stringextract('itemAttr="', '"', line)	# n.b.
 	
 	local_url 	= unescape(local_url)
@@ -885,7 +775,7 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 	#Log("key: " +key); Log("subtext: " +subtext);
 	#Log("text: " +text)
 
-	return typ,local_url,text,image,key,subtext,bitrate
+	return typ,local_url,text,image,key,subtext,bitrate,preset_id
 	
 #-----------------------------
 @route(PREFIX + '/CreateTrackObject')
@@ -976,7 +866,519 @@ def GetLocalUrl(): 						# lokale mp3-Nachricht, engl./deutsch - nur für PlayAu
 	if loc == 'de':
 		url=R('not_available_de.mp3')	# mp3: Dieser Sender ist leider nicht verfügbar	
 	return url
+	
+####################################################################################################
+#									Favoriten-/Ordner-Funktionen
+####################################################################################################
+#-----------------------------
+# Rückgabe True, Ordnernamen, guide_id, preset_number - True, falls ein Favorit mit preset_id existiert
+#	
+def SearchInFolders(preset_id, ID):	
+	Log('SearchInFolders')
+	Log('preset_id: ' + preset_id)
+	Log('ID: ' + ID)
+	serial = Dict['serial']	
+	
+	username = Prefs['username']
+	url = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&serial=%s' % serial	
+	try:
+		page = HTTP.Request(url, cacheTime=1).content						# Ordner-Übersicht laden
+	except Exception as exception:			
+			error_txt = 'Servermessage8: ' + str(exception) 
+			error_txt = error_txt + '\r\n' + url
+			page = ''
+	if page == '':
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		Log(error_txt)
+		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+	Log(page[:10])
+	
+	foldercnt = page.count('guide_id="f')
+	foldername = ''
+	guide_id = ''
+	if foldercnt == 0:			# Ordnerübersicht entw. ohne oder mind.2 (General + x)
+		foldercnt = 1
+		guide_id = 'f1'
+		foldername = 'General'
+		if ID == 'foldercnt':
+			return True, foldername, guide_id, str(foldercnt)
+		if ID == 'preset_id':		
+			if preset_id in page:
+				return True, foldername, guide_id, str(foldercnt)
+			else:
+				return False, foldername, guide_id, str(foldercnt)
+	else:							# einz. Ordner abklappern
+		if ID == 'foldercnt':
+			return True, foldername, guide_id, str(foldercnt)
+			
+		if ID == 'preset_id':		# 	Fav's preset_id  in den Ordnern vorhanden?
+			outlines = blockextract('outline type="link"', page)
+			for outline in outlines:
+				ordner_url = stringextract('URL="', '"', outline)
+				ordner_url = unescape(ordner_url) 
+				foldername = stringextract('title=', '&', ordner_url)
+				guide_id = stringextract('guide_id=', '&', ordner_url)
+				page = HTTP.Request(ordner_url, cacheTime=1).content		# Ordner-Inhalt laden	
+				if preset_id in page:
+					return True, foldername, guide_id, str(foldercnt)				
+		
+	return False, foldername, guide_id, str(foldercnt)	
+	
+#-----------------------------
+# ermittelt Inhalte aus den Profildaten
+#	ID='favoriteId' - eindeutige Kennz. des Ordners für Fav mit preset_id
+#	
+def SearchInProfile(ID, preset_id):	
+	Log('SearchInProfile')
+	Log('ID: ' + ID)
+	serial = Dict['serial']	
+
+	sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='preset_id') # vorhanden, Ordner-ID?
+	url = 'https://api.tunein.com/profiles/me/follows?folderId=%s&filter=favorites&formats=mp3,aac,ogg&serial=%s&partnerId=RadioTime' % (guide_id,serial)	
+		
+	favoriteId = guide_id
+	if ID == 'favoriteId':
+		try:	
+			page = HTTP.Request(url, cacheTime=1).content		# Profil laden, Filter: Ordner favoriteId	
+		except Exception as exception:			
+				error_txt = 'Servermessage11: ' + str(exception) 
+				error_txt = error_txt + '\r\n' + url
+				page = ''
+		if page == '':
+			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+			Log(error_txt)
+			return ObjectContainer(header=L('Fehler'), message=error_txt)		
+		Log(page[:10])				
+		
+		indices = blockextract('"Index"', page)
+		for index in indices:
+			# Log(index)	# bei Bedarf
+			Id = stringextract('"Id":"', '"', index)
+			Log(Id)
+			if Id ==  preset_id:
+				favoriteId = stringextract('"FavoriteId":"', '"', index)
+				Log(favoriteId)
+				return favoriteId
+				
+	return favoriteId	# leer - Fehlschlag
+	
+#-----------------------------
+# Favorit hinzufügen/löschen/verschieben
+#	Prefs['UseFavourites'] bereits in StationList geprüft
+#	Tunein verhindert selbst mehrfaches Hinzufügen 
+#	Hinzufügen ohne Ordnerauswahl wie in Tunein - Zielordner ist autom. General, 
+#		anschl. Verschieben: Button in StationList -> SearchInFolders -> 
+#		FolderMenu -> Favourit (hier zusätzl. SearchInProfile erforderlich)
+@route(PREFIX + '/Favourit')		
+def Favourit(ID, preset_id, folderId):
+	Log('Favourit')
+	Log('ID: ' + ID); Log('preset_id: ' + preset_id); Log('folderId: ' + folderId);
+	serial = Dict['serial']
+	loc_browser = str(Dict['loc_browser'])
+	username = str(Prefs['username'])	# ev. None
+	password = str(Prefs['passwort'])
+			
+	headers = {'Accept-Language': "%s, en;q=0.8" % loc_browser}
+	
+	if not Prefs['username']  or not Prefs['passwort']:
+		msg = L('Username und Passwort sind für diese Aktion erforderlich')
+		return ObjectContainer(header=L('Fehler'), message=msg)
+		
+	# Query prüft, ob der Tunein-Account bereits mit der serial-ID verknüpft ist
+	query_url = 'https://opml.radiotime.com/Account.ashx?c=query&partnerId=%s&serial=%s' % (partnerId,serial)
+	# Log(queqry_url)
+	try:
+		page = HTTP.Request(query_url, headers=headers, cacheTime=1).content				# 1. Query
+	except Exception as exception:			
+			error_txt = 'Servermessage5: ' + str(exception) 
+			error_txt = error_txt + '\r\n' + url
+			page = ''
+	if page == '':
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		Log(error_txt)
+		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+	Log('Fav-Query: ' + page[:10])
+	tname  = stringextract('text="', '"', page)	# Bsp. <outline type="text" text="testuser"/>
+	is_joined = False
+	if tname == Prefs['username']:				
+		is_joined = True						# Verknüpfung bereits erfolgt
+	Log('is_joined: ' + str(is_joined))
+		
+	if is_joined == False:
+		# Join verknüpft Account mit serial-ID. Vorhandene Presets werden eingebunden
+		# 	Ersetzung: partnerId, username, password, serial
+		join_url = ('https://opml.radiotime.com/Account.ashx?c=join&partnerId=%s&username=%s&password=%s&serial=%s' 
+					% (partnerId,username,password,serial))
+		try:
+			page = HTTP.Request(join_url, headers=headers, cacheTime=1).content			# 2. Join
+		except Exception as exception:			
+				error_txt = 'Servermessage6: ' + str(exception) 		# Bsp. 403 - Forbidden..
+				error_txt = error_txt + '\r\n' + url
+				page = ''
+		if page == '':
+			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+			Log(error_txt)
+			return ObjectContainer(header=L('Fehler'), message=error_txt)		
+		# Log('Fav-Join: ' + page)	# bei Bedarf
+		
+		status  = stringextract('<status>', '</status>', page)
+		if '200' != status:								# 
+			title  = stringextract('<title>', '</title>', page)
+			msg = L('Problem mit Username / Passwort') + ' | Tunein: ' + title	
+			Log(msg)
+			return ObjectContainer(header=L('Fehler'), message=msg)
+			
+	# Favoriten hinzufügen/Löschen - ID steuert ('add', 'remove', moveto)
+	#	Angabe des Ordners (folderId) nur für  moveto erf. 
+	# 	Ersetzung bei 'add', 'remove': ID, id,  serial, partnerId, itemUrlScheme, build
+	# 	Ersetzung bei 'moveto': ID, id,  serial, partnerId, itemUrlScheme, build, folderId
+	if ID == 'moveto':
+		folderId 	= folderId.split('f')[1]	# führendes 'f' entfernen, preset_number immer numerisch
+		favoriteId 	= SearchInProfile(ID='favoriteId', preset_id=preset_id) # Wert ist bereits numerisch
+		if favoriteId == '':					# 'Wahrscheinlichkeit gering			
+			msg = L('verschieben') + ' ' + L('fehlgeschlagen')
+			Log(msg)
+			return ObjectContainer(header=L('Fehler'), message=msg)
+		ID = 'move'		# Korrektur
+		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&favoriteId=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1'
+				% (ID,favoriteId,folderId,serial,partnerId,itemUrlScheme,build))
+	else:
+		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&id=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1' 
+				% (ID,preset_id,serial,partnerId,itemUrlScheme,build))
+	try:
+		req = HTTP.Request(fav_url, headers=headers, cacheTime=1)		# 3. Add / Remove
+		page = req.content
+		# h = req.headers; Log(h)	# nichts Relevantes	
+		
+	except Exception as exception:			
+			error_txt = 'Servermessage7: ' + str(exception) 
+			error_txt = error_txt + '\r\n' + fav_url
+			page = ''
+	if page == '':
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		Log(error_txt)
+		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+	# Log('Fav add/remove: ' + page)
+	
+	status  = stringextract('<status>', '</status>', page)				# Ergebnisausgabe
+	if '200' != status:	
+		title  = stringextract('<title>', '</title>', page)
+		msg = L('fehlgeschlagen') + ' | Tunein: ' + title			
+		return ObjectContainer(header=L('Fehler'), message=msg)
+	else:
+		if ID == 'add':									# 'add'
+			msg = L("Favorit") + ' ' + L("hinzugefuegt")
+		elif  ID == 'remove':	 										# 'remove'
+			msg = L("Favorit") + ' ' + L("entfernt")	
+		elif  ID == 'move':	 
+			msg = L("Favorit") + ' ' + L("verschoben")
+				
+		return ObjectContainer(header=L('OK'), message=msg)		
+
+#-----------------------------
+# Ordner hinzufügen/löschen
+#	ID steuert: 'addFolder' / 'removeFolder' 
+@route(PREFIX + '/Folder')		
+def Folder(ID, title, foldername, folderId, **kwargs):
+	Log('Folder')
+	Log(ID); Log(title); Log(foldername); Log(folderId);
+	serial = Dict['serial']
+	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)
+	loc_browser = str(Dict['loc_browser'])			
+	headers = {'Accept-Language': "%s, en;q=0.8" % loc_browser}
+	
+	if foldername == 'None' or foldername == '':
+		msg=L('Ordnername fehlt') 
+		return ObjectContainer(header=L('Fehler'), message=msg)			
+	
+	if foldername == 'General':
+		msg=L('Ordner kann nicht entfernt werden')
+		return ObjectContainer(header=L('Fehler'), message=msg)			
+	
+	# 	Ersetzung: c=ID, name=foldername, serial=serial, partnerId=partnerId, 
+	#		itemUrlScheme=itemUrlScheme, build=build
+	if ID == 'addFolder':
+		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&name=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1' 
+					% (ID,foldername,serial,partnerId,itemUrlScheme,build))	
+	else:
+		# bei 'removeFolder' wird name=foldername ersetzt durch folderId=folderId 
+		#
+		folderId = folderId.split('f')[1]	# führendes 'f' entfernen
+		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1' 
+					% (ID,folderId,serial,partnerId,itemUrlScheme,build))	
+						
+	try:
+		page = HTTP.Request(folder_url, headers=headers, cacheTime=1).content		
+	except Exception as exception:			
+			error_txt = 'Servermessage9: ' + str(exception) 		# Bsp. 403 - Forbidden..
+			error_txt = error_txt + '\r\n' + url
+			page = ''
+	if page == '':
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		Log(error_txt)
+		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+	# Log('Fav-Join: ' + page)
+
+	status  = stringextract('<status>', '</status>', page)				# Ergebnisausgabe
+	if '200' != status:	
+		title  = stringextract('<title>', '</title>', page)
+		msg = L('fehlgeschlagen') + ' | Tunein: ' + title			
+		return ObjectContainer(header=L('Fehler'), message=msg)
+	else:
+		if ID == 'addFolder':							# 'add'
+			msg = L("Ordner") + ' ' + L("hinzugefuegt")
+		else:											# 'remove'
+			msg = L("Ordner") + ' ' + L("entfernt")	
+		return ObjectContainer(header=L('OK'), message=msg)			
+
+	return
+#-----------------------------
+# Ordner auflisten - ID steuert Kennzeichnung:
+#	ID='removeFolder' -> Ordner entfernen (Löschbutton in Rubriken)
+#	ID='moveto' -> Favorit in Ordner verschieben (UseFavourites in StationList)
+#	preset_id nur für moveto erforderlich (Kennz. für Favoriten)
+#
+@route(PREFIX + '/FolderMenu')		
+def FolderMenu(title, ID, preset_id):
+	Log('FolderMenu')
+	Log('ID: ' + ID)
+	serial = Dict['serial']
+	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)
+	oc = home(oc)					
+	loc_browser = str(Dict['loc_browser'])			
+	headers = {'Accept-Language': "%s, en;q=0.8" % loc_browser}
+	
+	preset_url = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&serial=%s' % serial	
+	try:
+		page = HTTP.Request(preset_url, headers=headers, cacheTime=1).content		
+	except Exception as exception:			
+			error_txt = 'Servermessage10: ' + str(exception) 		
+			error_txt = error_txt + '\r\n' + url
+			page = ''
+	if page == '':
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		Log(error_txt)
+		return ObjectContainer(header=L('Fehler'), message=error_txt)
+				
+	rubriken = blockextract('<outline type="link"', page)		# Ordner-Übersicht
+	Log(len(rubriken))	
+	if len(rubriken) > 1:										# 1. Ordner (General) ohne Ordner-Urls
+		for rubrik in rubriken:
+				foldername 	= stringextract('text="', '"', rubrik)		# 1. Ordner immer General
+				folderId 	= stringextract('guide_id="', '"', rubrik)	# Bsp. "f3"
+				furl 		=  stringextract('URL="', '"', rubrik)
+				furl		= unescape(furl)							# wie in SearchInFolders
+				items_cnt 	= L('nicht gefunden')
+				try:
+					page = 		HTTP.Request(furl, headers=headers, cacheTime=1).content	# Inhalte abfragen
+					items_cnt =  len(blockextract('URL=', page))		# outline unscharf
+				except:
+					pass
+				
+				if ID == 'removeFolder':	# -> Ordner entfernen, 
+					title = foldername + ': ' + L('Ordner entfernen') + ' | ' + L('ohne Rueckfrage!')
+					summ = L('Anzahl der Eintraege') + ': ' + str(items_cnt)
+					thumb = R(ICON_FOLDER_REMOVE)
+					if foldername == 'General':
+						title = foldername + ': ' + L('Ordner kann nicht entfernt werden')
+						thumb = R(ICON_FOLDER_ADD)	
+					oc.add(DirectoryObject(
+						key = Callback(Folder, ID='removeFolder', title=title, foldername=foldername, folderId=folderId),
+						title = title, summary=summ, thumb=thumb
+					)) 
+				else:	         			# 'moveto' -> Favorit in Ordner verschieben, preset_id=preset_number	
+					if 	preset_id in page:	# Fav enthalten - Ordner nicht listen	
+						pass
+					else:
+						title = foldername + ': ' + L('hierhin verschieben') 
+						summ = L('Anzahl der Eintraege') + ': ' + str(items_cnt)
+						thumb = R(ICON_FAV_MOVE)
+						oc.add(DirectoryObject(key=Callback(Favourit, ID='moveto', preset_id=preset_id, folderId=folderId), 
+							title=title,summary=summ,thumb=thumb))
+			
+	return oc
+
+#-----------------------------
+####################################################################################################
+#									Recording-Funktionen
+####################################################################################################
+# **kwargs erforderlich für unerwartete Parameter, z.B.  checkFiles (ext. Webplayer)
+@route(PREFIX + '/RecordStart')
+def RecordStart(url,title,title_org,image,summ,typ,bitrate, **kwargs):			# Aufnahme Start 
+	Log('RecordStart')
+	Log(sys.platform)
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	
+	p_prot, p_path = url.split('//')	# Url-Korrektur für streamripper bei Doppelpunkten in Url (aber nicht mit Port) 
+	Log(p_path)							#	s. https://sourceforge.net/p/streamripper/discussion/19083/thread/300b7a0f/
+										#	dagegen wird ; akzeptiert, Bsp. ..tunein;skey..
+	p_path = (p_path.replace('id:', 'id%23').replace('secret:', 'secret%23').replace('key:', 'key%23'))	# ev.  ergänzen
+	url_clean = '%s//%s'	% (p_prot, p_path)
+	
+	AppPath	= Prefs['StreamripperPath']
+	Log('AppPath: ' + AppPath)	 
+	AppExist = False
+	if AppPath:										# Test: PRG existent?
+		Log(os.path.exists(AppPath))
+		if 'linux' in sys.platform:					# linux2, weitere linuxe?							
+			if os.path.exists(AppPath):				
+				AppExist = True
+		else:										# für andere, spez. Windows kein Test (os.stat kann fehlschlagen)
+			AppExist = True		
+	else:
+		AppExist = False
+	if AppExist == False:
+		msg= 'Streamripper' + ' ' + L("nicht gefunden")
+		Log(msg)
+		return ObjectContainer(header=L('Fehler'), message=msg)		
+	
+	DestDir = Prefs['DownloadDir']					# bei leerem Verz. speichert Streamripper ins Heimatverz.
+	Log('DestDir: ' + DestDir)	 
+	if DestDir:
+		DestDir = DestDir.strip()
+		if os.path.exists(DestDir) == False:
+			msg= L('Download-Verzeichnis') + ' ' + L("nicht gefunden")
+			Log(msg)
+			return ObjectContainer(header=L('Fehler'), message=msg)		
+					
+	# cmd-Bsp.: streamripper http://addrad.io/4WRMHX --quiet -d /tmp 		
+	cmd = "%s %s --quiet -d %s"	% (AppPath, url_clean, DestDir)		
+	Log('cmd: ' + cmd)
+				
+	Log(sys.platform)
+	if sys.platform == 'win32':							
+		args = cmd
+	else:
+		args = shlex.split(cmd)							# ValueError: No closing quotation (1 x, Ursache n.b.)
+	Log(len(args))
+	Log(args)
+
+	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme, spez. für PHT
+		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
+		pid_url = PID_line.split('|')[1]
+		if pid_url == url:	
+			pid = PID_line.split('|')[0]		
+			summ = PID_line.split('|')[3]	
+			title_new = title_org + ': ' + L('Aufnahme') +  ' ' + L('gestartet')	# Info wg. PHT identisch mit call-Info
+			msg =  '%s:\n%s | %s | PID: %s' % (title_new, url, summ, pid)	
+			Log(Client.Platform)	
+			Log('Test existing Record: ' + msg)
+			return ObjectContainer(header=L('Info'), message=msg)
+
+	# Popen-Objekt mit Pid außerhalb nicht mehr ansprechbar (call.pid). Daher speichern wir im Dict die Prozess-ID direkt.
+	# PHT-Problem (Linux + Windows): return ObjectContainer nach Dict['PID'].append führt PHT direkt wieder hierher 
+	# 	(vor append OK) - Problem der Stackverwaltung im Framwork? Den erneuten Durchlauf von PHT fangen wir oben in 
+	#	Prüfung auf exist. Aufnahme ab.
+	call=''
+	try:
+		Log(Client.Platform)	
+		call = subprocess.Popen(args, shell=False)		# shell=False erfordert shlex-Nutzung	
+		# output,error = call.communicate()				# klemmt hier (anders als im ARD-Plugin)
+		Log('call: ' + str(call))						# Bsp. <subprocess.Popen object at 0x7f16fad2e290>
+		if str(call).find('object at') > 0:  			# subprocess.Popen object OK
+			PID_line = '%s|%s|%s|%s'	% (call.pid, url, title_org, summ) 	# Muster: 																
+			Log(PID_line)	
+			Dict['PID'].append(PID_line)				# PHT-Problem s.o.
+			Log(Dict['PID'])
+			Dict.Save()
+			title_new = L('Aufnahme') + ' ' + L('gestartet')
+			msg =  '%s: \n %s | %s | PID: %s' % (title_new, url, summ, call.pid)
+			header = L('Info')
+			Log(msg)
+			return ObjectContainer(header=L('Info'), message=msg) 		# PHT-Problem s.o.
+			return oc
+							
+	except Exception as exception:
+		msgH = L('Fehler'); 
+		summ_new = str(exception)
+		summ_new = summ_new.decode(encoding="utf-8", errors="ignore")
+		title_new = L('Aufnahme fehlgeschlagen')
+		Log(summ_new)		
+		oc.add(DirectoryObject(
+			key = Callback(StationList, url=url, title=title, summ=summ, image=image, typ=typ, bitrate=bitrate,
+			preset_id=preset_id),
+			title=title_new, summary=summ_new,thumb =R(ICON_CANCEL)))						
+		return oc
+		
+	msg = L('Aufnahme') + ' ' + L('fehlgeschlagen') + '\n' + L('Ursache unbekannt')
+	header = L('Fehler')
+	Log(msg)	
+	return ObjectContainer(header=header, message=msg) 		# nicht mit Callback(StationList) zurück - erzeugt neuen Prozess
 	 	
+#-----------------------------
+@route(PREFIX + '/RecordStop')
+def RecordStop(url,title,summ, **kwargs):			# Aufnahme Stop
+	Log('RecordStop')
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	
+	pid = ''
+	Log(Dict['PID'])
+	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
+		Log(PID_line)									# Aufbau: call|url|title_org|summ
+		pid_url = PID_line.split('|')[1]
+		if pid_url == url:
+			pid = PID_line.split('|')[0]
+			Log(pid)
+			break
+			
+	if pid == '' or int(pid) == 0:
+		if 	Client.Platform == 'Plex Home Theater':		# PHT-Problem s. RecordStart
+			msg = L('Aufnahme') + ' ' + L('beendet')
+			return ObjectContainer(header=L('Info'), message=msg)					
+		msg = url + ': ' + L('keine laufende Aufnahme gefunden')
+		return ObjectContainer(header=L('Fehler'), message=msg)					
+			
+	# Problem kill unter Linux: da wir hier Popen aus Sicherheitsgründen ohne shell ausführen, hinterlässt kill 
+	#	einen Zombie. Dies ist aber zu vernachlässigen, da aktuelle Distr. Zombies nach wenigen Sekunden autom.
+	#	entfernen. 
+	#	Auch call.terminate() in einem Thread (Thread StreamripperStop wieder entfernt) hinterlässt Zombies.
+	#	Alternative (für das Plugin Overkill) wäre die Verwendung von psutil (https://github.com/giampaolo/psutil) 
+	pid = int(pid)
+	try:
+		os.kill(pid, signal.SIGTERM)	# Verzicht auf running-Abfrage os.kill(pid, 0)
+		time.sleep(1)
+		if 'linux' in sys.platform:		# Windows: 	object has no attribute 'SIGKILL'						
+			os.kill(pid, signal.SIGKILL)	
+		pidExist = True
+	except OSError, err:
+		pidExist = False
+		error='Error: ' + str(err)
+		Log(error)
+						
+	if pidExist == False:
+		header=L('Fehler')
+		title_new = str(err) 
+		msg =  '%s:\n%s | %s | PID: %s' % (title_new, url, summ, pid)	
+	else:
+		header=L('Info')
+		title_new = L('Aufnahme') + ' ' + L('beendet')
+		msg =  '%s:\n%s | %s | PID: %s' % (title_new,url, summ, pid)
+			
+	Dict['PID'].remove(PID_line)	# Eintrag Prozessliste entfernen - unabhängig vom Erfolg
+	Dict.Save()						# PHT springt vor Return wieder zum Anfang RecordStop, PID_line ist entfernt
+	return ObjectContainer(header=header, message=msg)		
+					
+#-----------------------------
+@route(PREFIX + '/RecordsList')	# Liste laufender Aufnahmen mit Stop-Button - Prozess wird nicht geprüft!
+def RecordsList(title):			# title=L("laufende Aufnahmen")
+	Log('RecordsList')
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	oc = home(oc)					
+	
+	for PID_line in Dict['PID']:						# Prüfung auf exist. Aufnahme
+		Log(PID_line)									# Aufbau: Pid|Url|Sender|Info
+		pid 	= PID_line.split('|')[0]
+		pid_url = PID_line.split('|')[1]
+		pid_sender = PID_line.split('|')[2]
+		pid_summ = PID_line.split('|')[3]
+		pid_summ = pid_summ.decode(encoding="utf-8", errors="ignore")
+		title_new = pid_sender + ' | ' + pid_summ
+		summ_new = pid_url + ' | ' + 'PID: ' + pid			
+		oc.add(DirectoryObject(key=Callback(RecordStop,url=pid_url,title=pid_sender,summ=pid_summ), title=title_new,
+			summary=summ_new, tagline=pid_url, thumb=R(ICON_STOP)))			       
+	
+	return oc
+
 ####################################################################################################
 #									Hilfsfunktionen
 ####################################################################################################
@@ -1064,7 +1466,7 @@ def blockextract(blockmark, mString):  	# extrahiert Blöcke begrenzt durch bloc
 	
 	pos = mString.find(blockmark)
 	if 	mString.find(blockmark) == -1:
-		Log('blockextract: blockmark nicht in mString enthalten')
+		Log('blockextract: blockmark nicht in mString')
 		# Log(pos); Log(blockmark);Log(len(mString));Log(len(blockmark));
 		return rlist
 	pos2 = 1
@@ -1105,7 +1507,7 @@ def unescape(line):	# HTML-Escapezeichen in Text entfernen, bei Bedarf erweitern
 	# Log(line_ret)		# bei Bedarf
 	return line_ret	
 #----------------------------------------------------------------  	
-def cleanhtml(line): # ersetzt alle HTML-Tags zwischen < und >  mit 1 Leerzeichen
+def cleanhtml(line): 	# ersetzt alle HTML-Tags zwischen < und >  mit 1 Leerzeichen
 	cleantext = line
 	cleanre = re.compile('<.*?>')
 	cleantext = re.sub(cleanre, ' ', line)
@@ -1117,6 +1519,15 @@ def repl_dop(liste):	# Doppler entfernen, im Python-Script OK, Problem in Plex -
 	mylist=list(myset)
 	mylist.sort()
 	return mylist
+#----------------------------------------------------------------  
+def serial_random(): # serial-ID's für tunein erzeugen (keine Formatvorgabe bekannt)
+	basis = ['b8cfa75d', '4589', '4fc19', '3a64', '2c2d24dfa1c2'] # 5 Würfelblöcke
+	serial = []
+	for block in basis:
+		new_block = ''.join(random.choice(block) for i in range(len(block)))
+		serial.append(new_block)
+	serial = '-'.join(serial)
+	return serial
 #---------------------------------------------------------------- 
 # s. Start(), Locale-Probleme, Lösung czukowski
 def L(string):		

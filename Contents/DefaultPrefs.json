@@ -90,6 +90,24 @@
 		"label": "TuneIn username",
 		"default": ""
 	},
+	{
+		"id": "passwort",
+		"type": "text",
+		"label": "TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen erforderlich)",
+		"default": ""
+	},
+	{
+		"id": "folder",
+		"type": "text",
+		"label": "Neuer Ordner fuer Favoriten",
+		"default": ""
+	},
+	{	
+		"id": "UseFavourites",
+		"label": "Favoriten hinzufuegen/entfernen",
+		"type": "bool",
+		"default": "false"
+	},
 	{	
 		"id": "InfoUpdate",
 		"label": "neues Update beim Start des Plugins anzeigen",

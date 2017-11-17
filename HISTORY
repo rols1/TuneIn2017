@@ -2,7 +2,15 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-11.11.2017	0.6.6	Update language-files: Polish (Przemo), Danish (Tommy Mikkelsen).
+
+17.11.2017	0.7.0	Favourites-Tools: move-function added (moving favourites to folder).
+not on github	0.6.9	Favourites-Tools: Buttons and functionality added for add/remove (functions StationList
+			and Favourit).	
+not on github	0.6.8	Favourites-Tools: SearchIDinPresets added (looks for existings preset_id's in Favourites).	
+not on github	0.6.7	Favourites-Tools: serial_random added (creates serial-ID for Tunein).
+			in Preferences added: input-field passwort, option-field UseFavourites.
+11.11.2017	0.6.6	Update language-files: Polish (Przemo), Danish (Tommy Mikkelsen). 
+			Icons fav_add.png + fav_remove.png for later use.
 11.11.2017	0.6.5	Update language-file: Ukrainian (Vlad).
 			LangTest: testfile now de.json (previos de.csv - redundant).
 			RecordsList: Home-Button added.

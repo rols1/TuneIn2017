@@ -36,6 +36,36 @@
 	"gestartet": "gestartet",
 	"fehlgeschlagen": "fehlgeschlagen",
 	"keine laufende Aufnahme gefunden": "keine laufende Aufnahme gefunden",
-	"Ursache unbekannt": "Ursache unbekannt"
+	"Ursache unbekannt": "Ursache unbekannt",
+	"TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen erforderlich)": "TuneIn Passwort (nur erforderlich fuer Favoriten hinzufügen/löschen erforderlich)",
+	"Favoriten hinzufuegen/entfernen": "Favoriten hinzufuegen/entfernen",
+	"Favorit": "Favorit",
+	"hinzufuegen": "hinzufügen",
+	"hinzugefuegt": "hinzugefügt",
+	"entfernen": "entfernen",
+	"entfernt": "entfernt",
+	"verschieben": "verschieben",
+	"verschoben": "verschoben",
+	"Username und Passwort sind für diese Aktion erforderlich": "Username und Passwort sind für diese Aktion erforderlich",
+	"Problem mit Username / Passwort": "Problem mit Username / Passwort",
+	"Neuer Ordner fuer Favoriten": "Neuer Ordner fuer Favoriten",
+	"Name des neuen Ordners": "Name des neuen Ordners",
+	"Ordner entfernen": "Ordner entfernen",
+	"Ordner zum Entfernen auswaehlen": "Ordner zum Entfernen auswählen",
+	"Ordner zum Verschieben auswaehlen": "Ordner zum Verschieben auswählen",
+	"Ordnername fehlt": "Ordnername fehlt",
+	"Ordner": "Ordner",
+	"Anzahl der Eintraege": "Anzahl der Einträge",
+	"ohne Rueckfrage!": "ohne Rückfrage!",
+	"Ordner kann nicht entfernt werden": "Ordner kann nicht entfernt werden",
+	"hierhin verschieben": "hierhin verschieben",
+	"keine Eintraege gefunden": "keine Einträge gefunden"
 }
+
+
+
+
+
+
+
 
