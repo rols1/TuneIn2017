@@ -17,7 +17,7 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.0'		
+VERSION =  '0.7.1'		
 VDATE = '17.11.2017'
 
 # 
@@ -648,13 +648,13 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 		Log('foldername: ' + foldername)
 		Log('foldercnt: ' + foldercnt)
 		Log(summ)
-		summ =title_org	+ ' | ' + L('Ordner') + ': ' + 	foldername	# hier nur Station + Ordner angeben, Server + Song entfallen
 		if sidExist == False:		
 			title = L("Favorit") + ' ' + L("hinzufuegen")	# hinzufuegen immer in Ordner General	
 			oc.add(DirectoryObject(key=Callback(Favourit, ID='add', preset_id=preset_id, folderId='dummy'), 
 				title=title,summary=summ,thumb=R(ICON_FAV_ADD)))
 		if sidExist == True:	
-			title = L("Favorit") + ' ' + L("entfernen")		
+			summ =title_org	+ ' | ' + L('Ordner') + ': ' + 	foldername	# hier nur Station + Ordner angeben,
+			title = L("Favorit") + ' ' + L("entfernen")					#  Server + Song entfallen
 			oc.add(DirectoryObject(key=Callback(Favourit, ID='remove', preset_id=preset_id, folderId='dummy'), 
 				title=title,summary=summ,thumb=R(ICON_FAV_REMOVE)))
 
