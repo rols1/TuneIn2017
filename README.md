@@ -33,7 +33,11 @@ https://github.com/rols1/TuneIn2017/wiki/TuneIn2017---Pictures-for-the-Localisat
 
 UPDATES:
 ===================  
-* Update-Modul ist integriert.
+Update-Modul ist integriert.
+
+Options:
+===================  
+* Download Option with Streamripper: [see more](https://github.com/rols1/TuneIn2017/wiki/Download-Option-with-Streamripper) 
 * Favourites and Folders (Tunein-Account required)
 
 Credits:
