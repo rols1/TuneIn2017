@@ -20,7 +20,7 @@
 	"keinen Stream gefunden zu": "keinen Stream gefunden zu",
 	"nicht gefunden": "nicht gefunden",
 	"Mehr...":  "Mehr...",
-	"neuer Versuch": "neuer Versuch",
+	"neuer Versuch": "neuer Versuch",	
 	"neues Update beim Start des Plugins anzeigen": "neues Update beim Start des Plugins anzeigen",
 	"Sprache Plugin": "Sprache Plugin",
 	"maximale Anzahl Objekte pro Seite": "maximale Anzahl Objekte pro Seite",
@@ -37,7 +37,6 @@
 	"fehlgeschlagen": "fehlgeschlagen",
 	"keine laufende Aufnahme gefunden": "keine laufende Aufnahme gefunden",
 	"Ursache unbekannt": "Ursache unbekannt",
-	"TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen erforderlich)": "TuneIn Passwort (nur erforderlich fuer Favoriten hinzufügen/löschen erforderlich)",
 	"Favoriten hinzufuegen/entfernen": "Favoriten hinzufuegen/entfernen",
 	"Favorit": "Favorit",
 	"hinzufuegen": "hinzufügen",
@@ -46,20 +45,21 @@
 	"entfernt": "entfernt",
 	"verschieben": "verschieben",
 	"verschoben": "verschoben",
+	"TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen)": "TuneIn Passwort (nur erforderlich fuer Favoriten hinzufügen/löschen)",
 	"Username und Passwort sind für diese Aktion erforderlich": "Username und Passwort sind für diese Aktion erforderlich",
 	"Problem mit Username / Passwort": "Problem mit Username / Passwort",
 	"Neuer Ordner fuer Favoriten": "Neuer Ordner fuer Favoriten",
 	"Name des neuen Ordners": "Name des neuen Ordners",
 	"Ordner entfernen": "Ordner entfernen",
 	"Ordner zum Entfernen auswaehlen": "Ordner zum Entfernen auswählen",
-	"Ordner zum Verschieben auswaehlen": "Ordner zum Verschieben auswählen",
 	"Ordnername fehlt": "Ordnername fehlt",
 	"Ordner": "Ordner",
 	"Anzahl der Eintraege": "Anzahl der Einträge",
 	"ohne Rueckfrage!": "ohne Rückfrage!",
 	"Ordner kann nicht entfernt werden": "Ordner kann nicht entfernt werden",
 	"hierhin verschieben": "hierhin verschieben",
-	"keine Eintraege gefunden": "keine Einträge gefunden"
+	"keine Eintraege gefunden": "keine Einträge gefunden",
+	"Ordner zum Verschieben auswaehlen": "Ordner zum Verschieben auswählen"
 }
 
 

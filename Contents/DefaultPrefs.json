@@ -93,7 +93,7 @@
 	{
 		"id": "passwort",
 		"type": "text",
-		"label": "TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen erforderlich)",
+		"label": "TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen)",
 		"default": ""
 	},
 	{

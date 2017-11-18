@@ -37,7 +37,6 @@
 	"fehlgeschlagen": "failed",
 	"keine laufende Aufnahme gefunden": "no running recording found",
 	"Ursache unbekannt": "unknown cause",
-	"TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen)": "TuneIn passwort (only required only for Favourites add/remove)",
 	"Favoriten hinzufuegen/entfernen": "Favourites add/remove",
 	"Favoriten": "Favourites",
 	"hinzufuegen": "add",
@@ -46,20 +45,21 @@
 	"entfernt": "removed",
 	"verschieben": "move",
 	"verschoben": "moved",
-	"Username und Passwort sind für diese Aktion erforderlich": "username and passwort are required to perform this action",
-	"Problem mit Username / Passwort": "Problem with username / passwort",
+	"TuneIn Passwort (nur erforderlich fuer Favoriten hinzufuegen/loeschen)": "TuneIn Password (only required for adding and moving favourites)",
+	"Username und Passwort sind für diese Aktion erforderlich": "username and password are required to perform this action",
+	"Problem mit Username / Passwort": "Problem with username / password",
 	"Neuer Ordner fuer Favoriten": "new folder for Favourites",
 	"Name des neuen Ordners": "Name of the new folder",
-	"Ordner entfernen": "remove folder ",
+	"Ordner entfernen": "remove folder",
 	"Ordner zum Entfernen auswaehlen": "choose folder to remove",
-	"Ordner zum Verschieben auswaehlen": "choose folder to move",
 	"Ordnername fehlt": "foldername missing",
 	"Ordner": "Folder",
 	"Anzahl der Eintraege": "number of items",
-	"ohne Rueckfrage!": "without consultation!",
+	"ohne Rueckfrage!": "automatically, without consultation!",
 	"Ordner kann nicht entfernt werden": "folder can't be removed",
 	"hierhin verschieben": "move  here",
-	"keine Eintraege gefunden": "no items found"
+	"keine Eintraege gefunden": "no items found",
+	"Ordner zum Verschieben auswaehlen": "choose folder to move"
 }
 
 

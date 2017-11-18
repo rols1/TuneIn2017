@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.1'		
-VDATE = '17.11.2017'
+VERSION =  '0.7.2'		
+VDATE = '18.11.2017'
 
 # 
 #	
@@ -78,9 +78,6 @@ REPO_URL 			= 'https://github.com/{0}/releases/latest'.format(GITHUB_REPOSITORY)
 
 # Globale Variablen für Tunein:
 partnerId		= 'RadioTime'
-itemUrlScheme 	= 'secure'
-build			= '1.30.0'
-
 
 ####################################################################################################
 def Start():
@@ -871,7 +868,7 @@ def GetLocalUrl(): 						# lokale mp3-Nachricht, engl./deutsch - nur für PlayAu
 #									Favoriten-/Ordner-Funktionen
 ####################################################################################################
 #-----------------------------
-# Rückgabe True, Ordnernamen, guide_id, preset_number - True, falls ein Favorit mit preset_id existiert
+# Rückgabe True, Ordnernamen, guide_id, foldercnt - True, falls ein Favorit mit preset_id existiert
 #	
 def SearchInFolders(preset_id, ID):	
 	Log('SearchInFolders')
@@ -981,7 +978,7 @@ def Favourit(ID, preset_id, folderId):
 	headers = {'Accept-Language': "%s, en;q=0.8" % loc_browser}
 	
 	if not Prefs['username']  or not Prefs['passwort']:
-		msg = L('Username und Passwort sind für diese Aktion erforderlich')
+		msg = L('Username und Passwort sind fuer diese Aktion erforderlich')
 		return ObjectContainer(header=L('Fehler'), message=msg)
 		
 	# Query prüft, ob der Tunein-Account bereits mit der serial-ID verknüpft ist
@@ -1040,11 +1037,11 @@ def Favourit(ID, preset_id, folderId):
 			Log(msg)
 			return ObjectContainer(header=L('Fehler'), message=msg)
 		ID = 'move'		# Korrektur
-		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&favoriteId=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1'
-				% (ID,favoriteId,folderId,serial,partnerId,itemUrlScheme,build))
+		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&favoriteId=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s'
+				% (ID,favoriteId,folderId,serial,partnerId))
 	else:
-		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&id=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1' 
-				% (ID,preset_id,serial,partnerId,itemUrlScheme,build))
+		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&id=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s' 
+				% (ID,preset_id,serial,partnerId))
 	try:
 		req = HTTP.Request(fav_url, headers=headers, cacheTime=1)		# 3. Add / Remove
 		page = req.content
@@ -1095,17 +1092,17 @@ def Folder(ID, title, foldername, folderId, **kwargs):
 		msg=L('Ordner kann nicht entfernt werden')
 		return ObjectContainer(header=L('Fehler'), message=msg)			
 	
-	# 	Ersetzung: c=ID, name=foldername, serial=serial, partnerId=partnerId, 
-	#		itemUrlScheme=itemUrlScheme, build=build
+	# 	Ersetzung: c=ID, name=foldername, serial=serial, partnerId=partnerId
+	#	
 	if ID == 'addFolder':
-		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&name=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1' 
-					% (ID,foldername,serial,partnerId,itemUrlScheme,build))	
+		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&name=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s' 
+					% (ID,foldername,serial,partnerId))	
 	else:
 		# bei 'removeFolder' wird name=foldername ersetzt durch folderId=folderId 
 		#
 		folderId = folderId.split('f')[1]	# führendes 'f' entfernen
-		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s&version=2&itemUrlScheme=%s&build=%s&reqAttempt=1' 
-					% (ID,folderId,serial,partnerId,itemUrlScheme,build))	
+		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s' 
+					% (ID,folderId,serial,partnerId))	
 						
 	try:
 		page = HTTP.Request(folder_url, headers=headers, cacheTime=1).content		
