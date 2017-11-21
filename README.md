@@ -4,10 +4,10 @@ tunein.com-Plugin für den Plex Media Server
 
 Download aktuelle Version: https://github.com/rols1/TuneIn2017/releases
 
-#### Rückmeldungen willkommen / Feedeback welcome: https://forums.plex.tv/discussion/288260/tunein2017
+#### Rückmeldungen willkommen / Feedeback welcome: https://forums.plex.tv/discussion/288260/rel-tunein2017
 EMail: rols1@gmx.de 
   
-#### Funktionen (getestet unter Linux und Windows, mit Chrome, OpenPHT, Plex Media Player)
+#### Functions tested on Linux and Windows, Player: Web Player, OpenPHT, Plex Media Player)
 
 
 
@@ -33,7 +33,7 @@ https://github.com/rols1/TuneIn2017/wiki/Pictures-and-Contexts-for-the-Localisat
 
 UPDATES:
 ===================  
-Update-Modul ist integriert.
+Update-Modul integrated.
 
 Options:
 ===================  

@@ -3,7 +3,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
-18.11.2017	0.7.2		
+21.11.2017	0.7.3	SearchUpdate: skip error-message, if Github not available (to prevent block pluginstart).
+			Update language-files.
+			Update In-Code-Doku.
+18.11.2017	0.7.2	Update language-file: Danish (Tommy Mikkelsen).	
 17.11.2017	0.7.1	Favourites-Tools: corrected summ-labels in StationList.
 17.11.2017	0.7.0	Favourites-Tools: move-function added (moving favourites to folder).
 not on github	0.6.9	Favourites-Tools: Buttons and functionality added for add/remove (functions StationList

@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.2'		
-VDATE = '18.11.2017'
+VERSION =  '0.7.3'		
+VDATE = '21.11.2017'
 
 # 
 #	
@@ -683,7 +683,7 @@ def get_pls(url):               # Playlist holen
 
 		# Zertifikate-Problem (vorwiegend unter Windows):
 		# Falls die Url im „Location“-Header-Feld eine neue HTTPS-Adresse enthält (Moved Temporarily), ist ein Zertifikat erforderlich.
-		# 	DPerformance: as große Mozilla-Zertifikat cacert.pem tauschen wir gegen /etc/ssl/ca-bundle.pem von linux (ca. halbe Größe).
+		# 	Performance: das große Mozilla-Zertifikat cacert.pem tauschen wir gegen /etc/ssl/ca-bundle.pem von linux (ca. halbe Größe).
 		#	Aber: falls ssl.SSLContext verwendet wird, schlägt der Request fehl.
 		#	Hinw.: 	gcontext nicht mit	cafile verwenden (ValueError)
 		#	Bsp.: KSJZ.db SmoothLounge, Playlist http://smoothlounge.com/streams/smoothlounge_128.pls
@@ -1027,8 +1027,8 @@ def Favourit(ID, preset_id, folderId):
 			
 	# Favoriten hinzufügen/Löschen - ID steuert ('add', 'remove', moveto)
 	#	Angabe des Ordners (folderId) nur für  moveto erf. 
-	# 	Ersetzung bei 'add', 'remove': ID, id,  serial, partnerId, itemUrlScheme, build
-	# 	Ersetzung bei 'moveto': ID, id,  serial, partnerId, itemUrlScheme, build, folderId
+	# 	Ersetzung bei 'moveto': ID,favoriteId,folderId,serial,partnerId
+	# 	Ersetzung bei 'add', 'remove': ID,preset_id,serial,partnerId
 	if ID == 'moveto':
 		folderId 	= folderId.split('f')[1]	# führendes 'f' entfernen, preset_number immer numerisch
 		favoriteId 	= SearchInProfile(ID='favoriteId', preset_id=preset_id) # Wert ist bereits numerisch
@@ -1390,7 +1390,7 @@ def SearchUpdate(title, start, oc=None):
 			if available == 'no_connect':
 				msgH = L('Fehler'); 
 				msg = L('Github ist nicht errreichbar') +  ' - ' +  L('Bitte die Update-Anzeige abschalten')		
-				return ObjectContainer(header=msgH, message=msg)
+				# return ObjectContainer(header=msgH, message=msg)	# skip - das blockt das Startmenü
 							
 			if 	available == 'true':					# Update präsentieren
 				return oc
@@ -1417,11 +1417,12 @@ def SearchUpdate(title, start, oc=None):
 def presentUpdate(oc,start):
 	Log('presentUpdate')
 	ret = updater.update_available(VERSION)			# bei Github-Ausfall 3 x None
+	Log(ret)
 	int_lv = ret[0]			# Version Github
 	int_lc = ret[1]			# Version aktuell
 	latest_version = ret[2]	# Version Github, Format 1.4.1
 
-	if ret[0] == None:
+	if ret[0] == None or ret[0] == False:
 		return oc, 'no_connect'
 		
 	zip_url = ret[5]	# erst hier referenzieren, bei Github-Ausfall None
