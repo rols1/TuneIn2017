@@ -1,4 +1,4 @@
-import urllib			# urllib.quote(), 
+import urllib			# urllib.quote()
 import urllib2			# urllib2.Request
 import ssl				# HTTPS-Handshake
 
@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.3'		
-VDATE = '21.11.2017'
+VERSION =  '0.7.4'		
+VDATE = '22.11.2017'
 
 # 
 #	
@@ -84,7 +84,7 @@ def Start():
 	# Phänomen bei Verzicht auf HTTP.CacheTime:
 	# mit dieser url ruft das Framework beim 2. Durchlauf von CreateTrackObject  Main() auf (aber nicht, wenn sie hier direkt zugeordnet wird):	
 	# 	url='http://absolut.hoerradar.de/absolutradio.mp3?sABC=59r8r97q#0#2s45pq59pr6699onn0qq321942141r80#gharva&amsparams=playerid:tunein;skey:1508436349'
-	# Framework-Call uaf Main() dazu (statt PlayAudio):
+	# Framework-Call auf Main() dazu (statt PlayAudio):
 	#	GET /music/tunein2017?includeConcerts=1&includeExtras=1&includeOnDeck=1&includePopularLeaves=1&includeChapters=1&checkFiles=1
 	
 	ObjectContainer.title1 = NAME
@@ -204,7 +204,7 @@ def Main():
 													# Nachrichten anhängen
 	oc.add(DirectoryObject(key = Callback(Rubriken, url=NEWS_URL % formats, title='NEWS', image=R('menu-news.png')),	
 		title = 'NEWS', summary='NEWS', thumb = R('menu-news.png'))) 
-	 
+
 #-----------------------------	
 	Log(Prefs['UseRecording'])
 	Log(Dict['PID'])
@@ -316,7 +316,7 @@ def Rubriken(url, title, image, offset=0):
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
 	ret = urllib2.urlopen(req)
 	
-	#headers = getHeaders(ret)						# Headeres bei Bedarf
+	#headers = getHeaders(ret)						# Antwort-Headers bei Bedarf
 	#headers = ret.headers.dict						
 	#Log(headers)
 		
@@ -377,9 +377,7 @@ def Rubriken(url, title, image, offset=0):
 		
 		for rubrik in rubriken:			
 			typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
-			# Log(local_url)		# bei Bedarf
-			# Log("typ: " +typ); Log("local_url: " +local_url); Log("text: " +text);
-			# Log("image: " +image); Log("key: " +key); Log("subtext: " +subtext); 
+			# Log(' '.join([typ,local_url,text,image,key,subtext,bitrate,preset_id])) # bei Bedarf
 
 			text = text.decode(encoding="utf-8", errors="ignore")
 			subtext = subtext.decode(encoding="utf-8", errors="ignore")
@@ -833,22 +831,25 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 #	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktioniert mit PMS nicht
 def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('PlayAudio')
-		
+
 	if url is None or url == '':			# sollte hier nicht vorkommen
 		Log('Url fehlt!')
-		return ObjectContainer(header='Error', message='Url fehlt!') # Web-Player: keine Meldung
-	try:
-		req = urllib2.Request(url)			# Test auf Existenz, SSLContext für HTTPS erforderlich,
-		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
-		ret = urllib2.urlopen(req, context=gcontext)
-		Log('PlayAudio: %s | %s' % (str(ret.code), url))
-	except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
-		error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
-		error_txt = error_txt + '\r\n' + url			# http://server-uk4.radioseninternetuy.com:9528/;	 			 	 
-		msgH = L('Fehler'); msg = error_txt				# Textausgabe: 	This station is suspended, if...
-		msg =  msg.decode(encoding="utf-8", errors="ignore")
-		Log(msg)
-		# return ObjectContainer(header=msgH, message=msg) # Framework fängt ab - keine Ausgabe
+		# return ObjectContainer(header='Error', message='Url fehlt!') # Web-Player: keine Meldung
+	if url:
+		try:
+			req = urllib2.Request(url)			# Test auf Existenz, SSLContext für HTTPS erforderlich,
+			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
+			ret = urllib2.urlopen(req, context=gcontext)
+			Log('PlayAudio: %s | %s' % (str(ret.code), url))
+		except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
+			error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
+			error_txt = error_txt + '\r\n' + url			# http://server-uk4.radioseninternetuy.com:9528/;	 			 	 
+			msgH = L('Fehler'); msg = error_txt				# Textausgabe: 	This station is suspended, if...
+			msg =  msg.decode(encoding="utf-8", errors="ignore")
+			Log(msg)
+			url=''
+			# return ObjectContainer(header=msgH, message=msg) # Framework fängt ab - keine Ausgabe
+	else:		
 		if 'notcompatible.enUS.mp3' in url:
 			url = R('notcompatible.enUS.mp3')	# Kennzeichnung + mp3 von TuneIn 
 		else:
@@ -857,11 +858,19 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 	return Redirect(url)
 	
 #-----------------------------
-def GetLocalUrl(): 						# lokale mp3-Nachricht, engl./deutsch - nur für PlayAudio
+def GetLocalUrl(): 						# lokale mp3-Nachricht, übersetzt,  - nur für PlayAudio
 	loc = str(Dict['loc'])
 	url=R('not_available_en.mp3')		# mp3: Sorry, this station is not available
 	if loc == 'de':
 		url=R('not_available_de.mp3')	# mp3: Dieser Sender ist leider nicht verfügbar	
+	if loc == 'fr':
+		url=R('not_available_fr.mp3')	# mp3: Désolé, cette station n'est pas disponible	
+	if loc == 'da':
+		url=R('not_available_da.mp3')	# mp3: Beklager, denne station er ikke tilgængelig	
+	if loc == 'uk':
+		url=R('not_available_uk.mp3')	# mp3: На жаль, ця станція недоступна	
+	if loc == 'pl':
+		url=R('not_available_pl.mp3')	# mp3: Przepraszamy, ta stacja nie jest dostępna	
 	return url
 	
 ####################################################################################################
@@ -1394,7 +1403,8 @@ def SearchUpdate(title, start, oc=None):
 							
 			if 	available == 'true':					# Update präsentieren
 				return oc
-														# Menü Plugin-Update zeigen														
+		
+		Log('InfoUpdate = False, no Check')				# Menü Plugin-Update zeigen														
 		title = 'Plugin-Update | Version: ' + VERSION + ' - ' + VDATE 	 
 		summary=L('Suche nach neuen Updates starten')
 		tagline=L('Bezugsquelle') + ': ' + REPO_URL			
