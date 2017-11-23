@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.4'		
-VDATE = '22.11.2017'
+VERSION =  '0.7.5'		
+VDATE = '23.11.2017'
 
 # 
 #	
@@ -637,27 +637,29 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 		oc.add(DirectoryObject(key=Callback(RecordStop,url=url,title=title,summ=summ_org), 
 			title=title,summary=summ,thumb=R(ICON_STOP)))
 			
-	if Prefs['UseFavourites'] == True:			# Favorit hinzufügen/Löschen
-		sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='preset_id') # vorhanden, Ordner?
-		Log('sidExist: ' + str(sidExist))
-		Log('foldername: ' + foldername)
-		Log('foldercnt: ' + foldercnt)
-		Log(summ)
-		if sidExist == False:		
-			title = L("Favorit") + ' ' + L("hinzufuegen")	# hinzufuegen immer in Ordner General	
-			oc.add(DirectoryObject(key=Callback(Favourit, ID='add', preset_id=preset_id, folderId='dummy'), 
-				title=title,summary=summ,thumb=R(ICON_FAV_ADD)))
-		if sidExist == True:	
-			summ =title_org	+ ' | ' + L('Ordner') + ': ' + 	foldername	# hier nur Station + Ordner angeben,
-			title = L("Favorit") + ' ' + L("entfernen")					#  Server + Song entfallen
-			oc.add(DirectoryObject(key=Callback(Favourit, ID='remove', preset_id=preset_id, folderId='dummy'), 
-				title=title,summary=summ,thumb=R(ICON_FAV_REMOVE)))
+	if Prefs['UseFavourites'] == True:	# Favorit hinzufügen/Löschen
+		if preset_id != None:			# None möglich - keine Einzelstation, Verweis auf Folgen, Bsp.:
+										# # http://opml.radiotime.com/Tune.ashx?c=pbrowse&id=p680102 (stream_type=download)
+			sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='preset_id') # vorhanden, Ordner?
+			Log('sidExist: ' + str(sidExist))
+			Log('foldername: ' + foldername)
+			Log('foldercnt: ' + foldercnt)
+			Log(summ)
+			if sidExist == False:		
+				title = L("Favorit") + ' ' + L("hinzufuegen")	# hinzufuegen immer in Ordner General	
+				oc.add(DirectoryObject(key=Callback(Favourit, ID='add', preset_id=preset_id, folderId='dummy'), 
+					title=title,summary=summ,thumb=R(ICON_FAV_ADD)))
+			if sidExist == True:	
+				summ =title_org	+ ' | ' + L('Ordner') + ': ' + 	foldername	# hier nur Station + Ordner angeben,
+				title = L("Favorit") + ' ' + L("entfernen")					#  Server + Song entfallen
+				oc.add(DirectoryObject(key=Callback(Favourit, ID='remove', preset_id=preset_id, folderId='dummy'), 
+					title=title,summary=summ,thumb=R(ICON_FAV_REMOVE)))
 
-			title = L("Favorit") + ' ' + L("verschieben")	# preset_number ist Position im Ordner
-			summ = L('Ordner zum Verschieben auswaehlen')				
-			oc.add(DirectoryObject(key=Callback(FolderMenu, title=title, ID='moveto', preset_id=preset_id), 
-				title = title, summary=summ, thumb=R(ICON_FAV_MOVE) 
-			)) 								
+				title = L("Favorit") + ' ' + L("verschieben")	# preset_number ist Position im Ordner
+				summ = L('Ordner zum Verschieben auswaehlen')				
+				oc.add(DirectoryObject(key=Callback(FolderMenu, title=title, ID='moveto', preset_id=preset_id), 
+					title = title, summary=summ, thumb=R(ICON_FAV_MOVE) 
+				)) 								
 		
 	return oc
 #-----------------------------
@@ -677,7 +679,7 @@ def get_pls(url):               # Playlist holen
 			except: 	
 				cont=''
 		cont = cont.strip()
-		Log(cont)
+		Log('cont1: ' + cont)
 
 		# Zertifikate-Problem (vorwiegend unter Windows):
 		# Falls die Url im „Location“-Header-Feld eine neue HTTPS-Adresse enthält (Moved Temporarily), ist ein Zertifikat erforderlich.
@@ -696,14 +698,13 @@ def get_pls(url):               # Playlist holen
 				# headers = getHeaders(req)		# bei Bedarf
 				# Log(headers)
 				cont = req.read()
-				Log(cont)
 			except Exception as exception:	
 				error_txt = 'Servermessage2: ' + str(exception)
 				error_txt = error_txt + '\r\n' + url
 				Log(error_txt)
 												# 3. Versuch
-		Log(cont)
-		if '[playlist]' in cont:	# Streamlinks aus Playlist extrahieren 
+		Log('cont2: ' + cont)
+		if '[playlist]' in cont or ['Playlist'] in cont:	# Streamlinks aus Playlist extrahieren 
 			lines =cont.splitlines()
 			for line in lines:	
 				if 'http' in line:	# Bsp. File1=http://195.150.20.9:8000/.., split in Verlauf StationList
@@ -881,6 +882,7 @@ def GetLocalUrl(): 						# lokale mp3-Nachricht, übersetzt,  - nur für PlayAud
 #	
 def SearchInFolders(preset_id, ID):	
 	Log('SearchInFolders')
+	preset_id = str(preset_id)			# None-Schutz (sollte hier nicht mehr vorkommen)
 	Log('preset_id: ' + preset_id)
 	Log('ID: ' + ID)
 	serial = Dict['serial']	
@@ -1655,12 +1657,12 @@ def getStreamMeta(address):
 		return {"status": status, "metadata": metadata, "hasPortNumber": hasPortNumber, "error": error}
 
 	except urllib2.HTTPError, e:	
-		error='Error, HTTPError = ' + str(e.code)
+		error='Error, HTTP-Error = ' + str(e.code)
 		Log(error)
 		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}
 
 	except urllib2.URLError, e:						# Bsp. RANA FM 88.5 http://216.221.73.213:8000
-		error='Error, URLError: ' + str(e.reason)
+		error='Error, URL-Error: ' + str(e.reason)
 		Log(error)
 		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}
 
