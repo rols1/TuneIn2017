@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.5'		
-VDATE = '23.11.2017'
+VERSION =  '0.7.6'		
+VDATE = '28.11.2017'
 
 # 
 #	
@@ -111,16 +111,19 @@ def Start():
 #					Die Lösung von czukowski (eigene L-Funktion) funktioniert + wird hier verwendet:
 #						https://forums.plex.tv/discussion/comment/838061/#Comment_838061
 #						Bsp. de.json-String: "Durchstoebern": "Durchstöbern" (Umlaute nur im 2. Teil!)
+#					Alternative (def LF(key, args)): 
+#						https://github.com/fuzeman/Spotify2.bundle/blob/master/Contents/Code/utils.py
 def ValidatePrefs():	
-	lang = Prefs['language'].split('/') # Format Bsp.: "Danish/da/da-DA/Author Tommy Mikkelsen"
 	try:
+		lang = Prefs['language'].split('/') # Format Bsp.: "Danish/da/da-DA/Author Tommy Mikkelsen"
 		loc 		= str(lang[1])		# de
 		loc_browser = loc
 		if len(lang) > 2:
 			loc_browser = str(lang[2])	# de-DE - Konkretisierung, falls vorhanden
 	except:
-		loc 		= 'en-us'
+		loc 		= 'en-us'			# Fallback 
 		loc_browser = 'en-US'
+		
 	loc_file = Core.storage.abs_path(Core.storage.join_path(MyContents, 'Strings', '%s.json' % loc))
 	Log(loc_file)		
 	if os.path.exists(loc_file):

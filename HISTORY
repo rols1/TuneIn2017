@@ -3,6 +3,7 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+28.11.2017	0.7.6	ValidatePrefs: None for Prefs['language'] catched (first plugin start).	
 23.11.2017	0.7.5	Favourites-Tools: Url with type=download excluded (no preset_id, not processable).
 			Function get_pls: including 'Playlist' (yet only 'playlist').	
 22.11.2017	0.7.4	Voice-files (mp3) for error-message "Sorry, this station is not available" added (one for
