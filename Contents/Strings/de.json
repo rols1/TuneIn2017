@@ -59,7 +59,10 @@
 	"Ordner kann nicht entfernt werden": "Ordner kann nicht entfernt werden",
 	"hierhin verschieben": "hierhin verschieben",
 	"keine Eintraege gefunden": "keine Einträge gefunden",
-	"Ordner zum Verschieben auswaehlen": "Ordner zum Verschieben auswählen"
+	"Ordner zum Verschieben auswaehlen": "Ordner zum Verschieben auswählen",
+	"Starte Plugin nur mit Favoriten (TuneIn-Account erforderlich)": "Starte Plugin nur mit Favoriten (TuneIn-Account erforderlich)",
+	"Custom Url: Url der Radiostation (Beispiel: http://myradio/live/stream.mp3)": "Custom Url: Url der Radiostation (Beispiel: http://myradio/live/stream.mp3)",
+	"Custom Url: Name der Radiostation (Beispiel: MyRadio)": "Custom Url: Name der Radiostation (Beispiel: MyRadio)"
 }
 
 

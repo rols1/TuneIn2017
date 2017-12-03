@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.7.6'		
-VDATE = '28.11.2017'
+VERSION =  '0.8.2'		
+VDATE = '03.12.2017'
 
 # 
 #	
@@ -47,6 +47,8 @@ ICON_SEARCH 			= 'ard-suche.png'
 ICON_RECORD				= 'icon-record.png'						
 ICON_STOP				= 'icon-stop.png'
 MENU_RECORDS			= 'menu-records.png'
+MENU_CUSTOM_ADD			= 'menu-custom-add.png'
+MENU_CUSTOM_REMOVE		= 'menu-custom-remove.png'
 ICON_FAV_ADD			= 'fav_add.png'
 ICON_FAV_REMOVE			= 'fav_remove.png'
 ICON_FAV_MOVE			= 'fav_move.png'
@@ -138,7 +140,6 @@ def ValidatePrefs():
 	Log('loc_file: %s' % loc_file)
 	Log('loc_browser: %s' % loc_browser)
 
-
 ####################################################################################################
 @handler(PREFIX, NAME,  art = ART, thumb = ICON)
 @route(PREFIX)
@@ -171,14 +172,19 @@ def Main():
 		Dict['serial'] = serial_random()								# eindeutige serial-ID für Tunein für Favoriten u.ä.
 		Log('serial-ID erzeugt')										# 	wird nach Löschen Plugin-Cache neu erzeugt
 	Log('serial-ID: ' + Dict['serial'])												
-
+	                  		
 	if username:
 		my_title = u'%s' % L('Meine Favoriten')
 		my_url = USER_URL % username									# serial hier auch statt username möglich
-		oc.add(DirectoryObject(
-			key = Callback(Rubriken, url=my_url, title=my_title, image=ICON),
-			title = my_title, thumb = R(ICON) 
-		))                    
+		if Prefs['StartWithFavourits']:									# Favoriten + SearchUpdate direkt anzeigen 
+			oc = Rubriken(url=my_url, title=my_title, image=ICON)
+			oc = SearchUpdate(title=NAME, start='true', oc=oc)	# Updater-Modul einbinden
+			return oc
+		else:															# Standard-Menü
+			oc.add(DirectoryObject(
+				key = Callback(Rubriken, url=my_url, title=my_title, image=ICON),
+				title = my_title, thumb = R(ICON) 
+			))  
 		
 	formats = 'mp3,aac'	
 	Log(Prefs['PlusAAC'])								
@@ -433,7 +439,7 @@ def Rubriken(url, title, image, offset=0):
 						title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
 					)) 
 					break					# Schleife beenden
-					
+			
 		if 'c=presets' in url_org:			# Ordner-Funktionen in Favoriten anhängen
 			if Prefs['UseFavourites']:
 				title = L('Neuer Ordner fuer Favoriten') 
@@ -452,9 +458,35 @@ def Rubriken(url, title, image, offset=0):
 					oc.add(DirectoryObject(
 						key = Callback(FolderMenu, title=title, ID='removeFolder', preset_id='dummy'), 
 						title = title, summary=summ, thumb=R(ICON_FOLDER_REMOVE) 
-					)) 								
+					))
+					
+				# Button für Custom Url - Custom Playlist wird autom. geladen
+				# Einstellungen:  Felder Custom Url/Name müssen ausgefüllt sein, Custom Url mit http starten
+				#	Custom Url wird hier nur hinzugefügt - Verschieben + Löschen erfolgt als Favorit in
+				#		StationList 
+				if Prefs['custom_url'] or Prefs['custom_name']: 		# Custom Url/Name - ausgefüllt 
+					custom_url 	= str(Prefs['custom_url']).strip()
+					custom_name = str(Prefs['custom_name']).strip()			# ungeprüft!
+					sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id=custom_url, ID='custom_url') # vorhanden
+					Log(sidExist)
+					if custom_url == '' or custom_name == '':
+						error_txt = L("Custom Url") + ': ' + L("Eintrag fehlt fuer Url oder Name")
+						error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+						return ObjectContainer(header=L('Fehler'), message=error_txt)		
+					
+					if custom_url.startswith('http') == False: 
+						error_txt = L('Custom Url muss mit http beginnen')
+						error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+						return ObjectContainer(header=L('Fehler'), message=error_txt)	
+							
+					if sidExist == False:									# schon vorhanden?
+						title = L('Custom Url') + ' ' + L('hinzufuegen')	# hinzufuegen immer in Ordner General	
+						summ = custom_name + ' | ' + custom_url
+						oc.add(DirectoryObject(key=Callback(Favourit, ID='addcustom', preset_id=custom_url, folderId=custom_name), 
+							title=title,summary=summ,thumb=R(MENU_CUSTOM_ADD)))
 
 	return oc
+	
 #-----------------------------
 def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	Log('get_presetUrls')
@@ -840,11 +872,20 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 		Log('Url fehlt!')
 		# return ObjectContainer(header='Error', message='Url fehlt!') # Web-Player: keine Meldung
 	if url:
+		if url == "http://myradio/live/stream.mp3":	# Scherzkeks: Einstellungen-Beispiel kopiert
+			return Redirect(R('tonleiter_harfe.mp3'))	
 		try:
 			req = urllib2.Request(url)			# Test auf Existenz, SSLContext für HTTPS erforderlich,
 			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
 			ret = urllib2.urlopen(req, context=gcontext)
 			Log('PlayAudio: %s | %s' % (str(ret.code), url))
+			
+			headers = getHeaders(ret)
+			# Check auf HTML-/Textseite - vermutl. falsche Custom Url:
+			if 'text/html' in str(headers):
+				Log('Error: Textpage ' + url)
+				return Redirect(R('textpage.mp3'))	
+			
 		except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
 			error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
 			error_txt = error_txt + '\r\n' + url			# http://server-uk4.radioseninternetuy.com:9528/;	 			 	 
@@ -913,7 +954,7 @@ def SearchInFolders(preset_id, ID):
 		foldername = 'General'
 		if ID == 'foldercnt':
 			return True, foldername, guide_id, str(foldercnt)
-		if ID == 'preset_id':		
+		if ID == 'preset_id' or ID == 'custom_url':		# ID='custom_url': preset_id=custom_url			
 			if preset_id in page:
 				return True, foldername, guide_id, str(foldercnt)
 			else:
@@ -922,7 +963,7 @@ def SearchInFolders(preset_id, ID):
 		if ID == 'foldercnt':
 			return True, foldername, guide_id, str(foldercnt)
 			
-		if ID == 'preset_id':		# 	Fav's preset_id  in den Ordnern vorhanden?
+		if ID == 'preset_id' or ID == 'custom_url':		# 	Fav's preset_id od. custom_url in den Ordnern vorhanden?
 			outlines = blockextract('outline type="link"', page)
 			for outline in outlines:
 				ordner_url = stringextract('URL="', '"', outline)
@@ -937,20 +978,30 @@ def SearchInFolders(preset_id, ID):
 	
 #-----------------------------
 # ermittelt Inhalte aus den Profildaten
-#	ID='favoriteId' - eindeutige Kennz. des Ordners für Fav mit preset_id
+#	ID='favoriteId': Rückgabe der FavoriteId (kennzeichnet die Position des Fav mit preset_id im Profil),
+#					Abgleich erfolgt mit "Id"
+#					falls preset_id mit u startet (Bsp. u21), handelt es sich um eine Custom Url,
+#					Abgleich erfolgt ohne mit "FavoriteId" (preset_id ohne u)
 #	
 def SearchInProfile(ID, preset_id):	
 	Log('SearchInProfile')
+	Log('preset_id: ' + preset_id)
+	custom = False
+	if preset_id.startswith('u'):			# custom-url: u entfernen für Abgleich mit FavoriteId
+		preset_id = preset_id[1:]
+		custom = True
+	
 	Log('ID: ' + ID)
 	serial = Dict['serial']	
 
 	sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='preset_id') # vorhanden, Ordner-ID?
+	# url: Profil laden, Filter: Ordner favoriteId - nur json-Format möglich
 	url = 'https://api.tunein.com/profiles/me/follows?folderId=%s&filter=favorites&formats=mp3,aac,ogg&serial=%s&partnerId=RadioTime' % (guide_id,serial)	
 		
 	favoriteId = guide_id
 	if ID == 'favoriteId':
 		try:	
-			page = HTTP.Request(url, cacheTime=1).content		# Profil laden, Filter: Ordner favoriteId	
+			page = HTTP.Request(url, cacheTime=1).content		
 		except Exception as exception:			
 				error_txt = 'Servermessage11: ' + str(exception) 
 				error_txt = error_txt + '\r\n' + url
@@ -964,11 +1015,14 @@ def SearchInProfile(ID, preset_id):
 		indices = blockextract('"Index"', page)
 		for index in indices:
 			# Log(index)	# bei Bedarf
-			Id = stringextract('"Id":"', '"', index)
-			Log(Id)
-			if Id ==  preset_id:
+			if  custom:			# custom-url
+				Id = stringextract('FavoriteId":"', '"', index)
+			else:
+				Id = stringextract('"Id":"', '"', index)
+			# Log(Id);Log(preset_id);
+			if Id == preset_id:
 				favoriteId = stringextract('"FavoriteId":"', '"', index)
-				Log(favoriteId)
+				Log('Profil-Index: ' + favoriteId)
 				return favoriteId
 				
 	return favoriteId	# leer - Fehlschlag
@@ -981,7 +1035,7 @@ def SearchInProfile(ID, preset_id):
 #		anschl. Verschieben: Button in StationList -> SearchInFolders -> 
 #		FolderMenu -> Favourit (hier zusätzl. SearchInProfile erforderlich)
 @route(PREFIX + '/Favourit')		
-def Favourit(ID, preset_id, folderId):
+def Favourit(ID, preset_id, folderId, includeOnDeck=None, **kwargs):		# unexpected keyword 'includeOnDeck'
 	Log('Favourit')
 	Log('ID: ' + ID); Log('preset_id: ' + preset_id); Log('folderId: ' + folderId);
 	serial = Dict['serial']
@@ -1040,9 +1094,18 @@ def Favourit(ID, preset_id, folderId):
 			return ObjectContainer(header=L('Fehler'), message=msg)
 			
 	# Favoriten hinzufügen/Löschen - ID steuert ('add', 'remove', moveto)
+	#		 Custom  Url nur einfügen - danach Behandlung als Favorit 
 	#	Angabe des Ordners (folderId) nur für  moveto erf. 
 	# 	Ersetzung bei 'moveto': ID,favoriteId,folderId,serial,partnerId
 	# 	Ersetzung bei 'add', 'remove': ID,preset_id,serial,partnerId
+	#	Sonderbehandlung bei Custom  Url: url=preset_id=custom_url , name=folderId=custom_name -
+	#		urllib.quote(folderId) für Leer- u.a. Zeichen in name
+	
+	if ID == 'addcustom':						# Custom  Url einfügen
+		folderId = urllib.quote(folderId)
+		fav_url = ('https://opml.radiotime.com/Preset.ashx?render=xml&c=add&name=%s&url=%s&render=xml&formats=mp3&serial=%s&partnerId=%s'
+				% (folderId, preset_id, serial,partnerId))	
+
 	if ID == 'moveto':
 		folderId 	= folderId.split('f')[1]	# führendes 'f' entfernen, preset_number immer numerisch
 		favoriteId 	= SearchInProfile(ID='favoriteId', preset_id=preset_id) # Wert ist bereits numerisch
@@ -1053,7 +1116,8 @@ def Favourit(ID, preset_id, folderId):
 		ID = 'move'		# Korrektur
 		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&favoriteId=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s'
 				% (ID,favoriteId,folderId,serial,partnerId))
-	else:
+				
+	if ID == 'add' or ID == 'remove':
 		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&id=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s' 
 				% (ID,preset_id,serial,partnerId))
 	try:
@@ -1077,11 +1141,13 @@ def Favourit(ID, preset_id, folderId):
 		msg = L('fehlgeschlagen') + ' | Tunein: ' + title			
 		return ObjectContainer(header=L('Fehler'), message=msg)
 	else:
-		if ID == 'add':									# 'add'
+		if ID == 'add':											# 'add'
 			msg = L("Favorit") + ' ' + L("hinzugefuegt")
-		elif  ID == 'remove':	 										# 'remove'
+		if ID == 'addcustom':									# 'addcustom'
+			msg = L("Custom Url") + ' ' + L("hinzugefuegt")
+		elif  ID == 'remove':	 								# 'remove'
 			msg = L("Favorit") + ' ' + L("entfernt")	
-		elif  ID == 'move':	 
+		elif  ID == 'move':	 									# 'move'
 			msg = L("Favorit") + ' ' + L("verschoben")
 				
 		return ObjectContainer(header=L('OK'), message=msg)		
@@ -1150,7 +1216,7 @@ def Folder(ID, title, foldername, folderId, **kwargs):
 #	preset_id nur für moveto erforderlich (Kennz. für Favoriten)
 #
 @route(PREFIX + '/FolderMenu')		
-def FolderMenu(title, ID, preset_id):
+def FolderMenu(title, ID, preset_id, checkFiles=None, **kwargs):	#  unexpected keyword 'checkFiles'
 	Log('FolderMenu')
 	Log('ID: ' + ID)
 	serial = Dict['serial']
@@ -1209,7 +1275,12 @@ def FolderMenu(title, ID, preset_id):
 			
 	return oc
 
-#-----------------------------
+####################################################################################################
+#							   Funktionen für Custom Playlist
+####################################################################################################
+
+
+
 ####################################################################################################
 #									Recording-Funktionen
 ####################################################################################################
@@ -1625,7 +1696,7 @@ def getStreamMeta(address):
 		response = urllib2.urlopen(request, context=gcontext, timeout=UrlopenTimeout)	
 		headers = getHeaders(response)
 		# Log(headers)
-		   
+				   
 		if "server" in headers:
 			shoutcast = headers['server']
 		elif "X-Powered-By" in headers:
@@ -1750,6 +1821,7 @@ def shoutcastCheck(response, headers, itsOld):
 		contenttype = headers.get('Content-Type')
 	elif headers.get('content-type') is not None:
 		contenttype = headers.get('content-type')
+				
 
 	if icy_metaint_header is not None:
 		metaint = int(icy_metaint_header)

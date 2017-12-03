@@ -3,6 +3,13 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+03.12.2017	0.8.2	New option "Start of plugin only with Favourites".
+not on github	0.8.1	Custom Url: Code added / adapted in function Folder and Rubriken.
+not on github	0.8.0	PlayAudio: textpage.mp3 and tonleiter_harfe.mp3 added (in Resources) as error-messages.
+not on github	0.7.9	Preferences: 2 input fields added for Custom Url (Url, Name), language terms adapted in
+			folder Strings and poeditor project.
+not on github	0.7.8	SearchInProfile: adapting to find custom url in folder	
+not on github	0.7.7	DefaultPrefs.json: adaption locale-terms to tunein (https://opml.radiotime.com/Describe.ashx?c=locales).	
 28.11.2017	0.7.6	ValidatePrefs: None for Prefs['language'] catched (first plugin start).	
 23.11.2017	0.7.5	Favourites-Tools: Url with type=download excluded (no preset_id, not processable).
 			Function get_pls: including 'Playlist' (yet only 'playlist').	
