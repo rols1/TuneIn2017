@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.8.2'		
-VDATE = '03.12.2017'
+VERSION =  '0.9.2'		
+VDATE = '10.12.2017'
 
 # 
 #	
@@ -50,6 +50,7 @@ MENU_RECORDS			= 'menu-records.png'
 MENU_CUSTOM_ADD			= 'menu-custom-add.png'
 MENU_CUSTOM_REMOVE		= 'menu-custom-remove.png'
 ICON_FAV_ADD			= 'fav_add.png'
+ICON_MYRADIO			= 'myradio.png'
 ICON_FAV_REMOVE			= 'fav_remove.png'
 ICON_FAV_MOVE			= 'fav_move.png'
 ICON_FOLDER_ADD			= 'folder_add.png'
@@ -158,13 +159,32 @@ def Main():
 	Log('Platform.ServerVersion: ' + Platform.ServerVersion)			# dto.
 	
 	title = 'Durchstoebern'
-	title = title.decode(encoding="utf-8", errors="ignore")
-	title = myL(title)
+	title = L(title)
 			
 	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
 
 	oc.add(InputDirectoryObject(key=Callback(Search), title=u'%s' % L('Suche'), prompt=u'%s' % L('Suche Station / Titel'), 
 		thumb=R(ICON_SEARCH)))
+		
+	MyRadioStations = Prefs['MyRadioStations']							# eigene Liste mit Radiostationen, 
+	Log('MyRadioStations: ' + str(MyRadioStations))							# (Muster in Resources)
+	if  MyRadioStations:
+		MyRadioStations = MyRadioStations.strip()	
+		if os.path.exists(r'%s' % MyRadioStations):
+				title = L("Meine Radiostationen")
+				summ = MyRadioStations
+				oc.add(DirectoryObject(key = Callback(ListMRS, path=MyRadioStations), 
+					title=title, summary=summ, thumb = R(ICON_MYRADIO))) 
+					 
+				if Prefs['StartWithMyRadioStations']:					# MyRadioStations + SearchUpdate direkt anzeigen 								
+					oc = SearchUpdate(title=NAME, start='true', oc=oc)	# Updater-Modul einbinden
+					return oc				
+		else:
+			title = L("Meine Radiostationen") + ': ' + L("Datei nicht gefunden")
+			summ = L("nicht gefunden") + ': ' +  MyRadioStations
+			tag = L('Bitte den Eintrag in Einstellungen ueberpruefen!')
+			oc.add(DirectoryObject(key=Callback(Main),title=title, summary=summ, tagline=tag, thumb=R(ICON_WARNING)))
+				
 		
 	username = Prefs['username']										# Privat - nicht loggen
 	passwort = Prefs['passwort']										# dto.
@@ -231,7 +251,7 @@ def Main():
 			
 	return oc
 						
-#----------------------------------------------------------------
+####################################################################################################
 # LangTest testet aktuelle Plugin-Sprachdatei, z.B. en.json (Lang_Test=True).
 #	Ausgabe von Buttons: Titel = Deutsch, summary = gewählte Sprache
 @route(PREFIX + '/LangTest')
@@ -316,18 +336,22 @@ def Rubriken(url, title, image, offset=0):
 	url_org 	= url	# sichern
 	title_org 	= title	# sichern
 
-	max_count = ''									# Default: keine Begrenzung
+	max_count = 0									# Default: keine Begrenzung
 	if Prefs['maxPageContent']:
 		max_count = int(Prefs['maxPageContent'])	# max. Anzahl Einträge ab offset
+
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
 	req = urllib2.Request(url)					# xml-Übersicht Rubriken
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
 	ret = urllib2.urlopen(req)
-	
-	#headers = getHeaders(ret)						# Antwort-Headers bei Bedarf
-	#headers = ret.headers.dict						
-	#Log(headers)
+		
+	minBitrate = Prefs['minBitrate']
+	if minBitrate == '' or minBitrate == None:
+		minBitrate = 0
+	else:
+		minBitrate = int(minBitrate.split()[0])
+	Log('minBitrate: ' + str(minBitrate))
 		
 	page = ret.read()
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
@@ -378,7 +402,7 @@ def Rubriken(url, title, image, offset=0):
 		rubriken = blockextract('<outline type', outline)	# restliche outlines
 		page_cnt = len(rubriken)
 		
-		if 	max_count:									# '' = 'Mehr..'-Option ausgeschaltet
+		if 	max_count:									# '' = 'Mehr..'-Option ausgeschaltet?
 			delnr = min(page_cnt, offset)
 			del rubriken[:delnr]
 			Log(delnr)				
@@ -391,19 +415,24 @@ def Rubriken(url, title, image, offset=0):
 			text = text.decode(encoding="utf-8", errors="ignore")
 			subtext = subtext.decode(encoding="utf-8", errors="ignore")
 						
-			if typ == 'link':									# bitrate hier n.b.
+			if typ == 'link':										# bitrate hier n.b.
 				oc.add(DirectoryObject(
 					key = Callback(Rubriken, url=local_url, title=text, image=image, offset=0),
 					title = text, summary=subtext, tagline=L('Mehr...'), thumb = image 
 				)) 
 								 
-			if typ == 'audio':
+			if typ == 'audio':									
+				if bitrate== '':
+					bitrate = 0
+				if int(bitrate) < minBitrate:						# Mindest-Bitrate gewählt?
+					continue
+
 				tagline = ''
 				if bitrate:											# möglich: keine Angabe (stream_type="download")
 					tagline = 'Station | Bitrate: %s KB' % bitrate
 				else:
 					bitrate = '?'									# PHT verträgt '' nicht
-					
+									
 				# Sonderfall: Station wird als nicht unterstützt ausgegeben, aber im Web/App gespielt. Hier
 				#	versuchen wir den Zugriff auf die Playlist via preset_id (Analyse Chrome-HAR).
 				if key == "unavailable":							# Bsp. Buddha Hits mit url -> notcompatible.enUS.mp3
@@ -439,7 +468,7 @@ def Rubriken(url, title, image, offset=0):
 						title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
 					)) 
 					break					# Schleife beenden
-			
+		Log('Log5')
 		if 'c=presets' in url_org:			# Ordner-Funktionen in Favoriten anhängen
 			if Prefs['UseFavourites']:
 				title = L('Neuer Ordner fuer Favoriten') 
@@ -577,75 +606,13 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 			message="%s %s" % (msg, title)
 			return ObjectContainer(header=L('Fehler'), message=message)			
 
-	lines = cont.splitlines()
-	err_flag = False; err=''					# Auswertung nach Schleife	
-	url_list = []
-	line_cnt = 0								# Einzelzählung
-	for line in lines:
-		line_cnt = line_cnt + 1
-		Log('line %s: %s' % (line_cnt, line))
-		url = line
-
-		if '=http' in line:						# Playlist-Eintrag, Bsp. File1=http://195.150.20.9:8000/..
-			url = line.split('=')[1]
-			Log(url)
-
-		if url.startswith('http'):				# rtpm u.ä. ignorieren
-			if url.endswith('.mp3'):			# .mp3 bei getStreamMeta durchwinken
-				st=1; ret={}
-			else:
-				ret = getStreamMeta(url)		# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
-				st = ret.get('status')			# 	http://217.198.148.101:80/
-			Log('ret.get.status: ' + str(st))
-			
-			if st == 0:							# nicht erreichbar, verwerfen. Bsp. http://server-uk4.radioseninternetuy.com:9528
-				err = ret.get('error')			# Bsp.  City FM 92.9 (Taichung, Taiwan):
-				err = err + '\r\n' + url		#	URLError: timed out, http://124.219.41.230:8000/929.mp3
-				err_flag = True
-				Log(err)
-				# return ObjectContainer(header=L('Fehler'), message=err) # erst nach Durchlauf der Liste, s.u.
-				continue							
-			else:
-				if ret.get('metadata'):					# Status 1: Stream ist up, Metadaten aktualisieren (nicht .mp3)
-					metadata = ret.get('metadata')
-					Log('metadata:'); Log(metadata)						
-					bitrate = metadata.get('bitrate')	# bitrate aktualisieren, falls in Metadaten vorh.
-					Log(bitrate)
-					try:
-						song = metadata.get('song')		# mögl.: UnicodeDecodeError: 'utf8' codec can't decode..., Bsp.
-						song = song.decode('utf-8')		# 	'song': 'R\r3\x90\x86\x11\xd7[\x14\xa6\xe1k...
-						song = unescape(song)
-					except:
-						song=''
-						
-					Log('song: ' + str(song)); Log('bitrate: ' + str(bitrate))	# mind. bei bitrate None möglich
-					if song.find('adw_ad=') == -1:		# ID3-Tags (Indiz: adw_ad=) verwerfen
-						if bitrate and song:							
-							summ = 'Song: %s | Bitrate: %sKB' % (song, bitrate) # neues summary
-						if bitrate and song == '':	
-							summ = '%s | Bitrate: %sKB' % (summ_org, bitrate)		# altes summary ergänzen
-					Log('summ: ' + summ)		
-				if  ret.get('hasPortNumber') == 'true': # auch SHOUTcast ohne Metadaten möglich, Bsp. Holland FM Gran Canaria,
-					if url.endswith('/'):				#	http://stream01.streamhier.nl:9010
-						url = '%s;' % url
-					else:
-						url = '%s/;' % url
-				else:	
-					if url.endswith('.fm/'):			# Bsp. http://mp3.dinamo.fm/ (SHOUTcast-Stream)
-						url = '%s;' % url
-											
-			Log('append: ' + url)	
-			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject				
-		
-	Log(len(url_list))		
-	url_list = repl_dop(url_list)				# Doppler entfernen	
-	Log(len(url_list))		
+	#	StreamTests ausgelagert zur Mehrfachnutzung (ListMRS)
+	url_list, err_flag = StreamTests(cont,summ_org)		
 	if len(url_list) == 0:
 		if err_flag == True:					# detaillierte Fehlerausgabe vorziehen, aber nur bei leerer Liste
-			return ObjectContainer(header=L('Fehler'), message=err)
-		msg=L('keinen Stream gefunden zu') 
-		message="%s %s" % (msg, title)
-		return ObjectContainer(header=L('Fehler'), message=message)
+			msg=L('keinen Stream gefunden zu') 
+			message="%s %s" % (msg, title)
+			return ObjectContainer(header=L('Fehler'), message=message)
 
 	i=1; 
 	for line in url_list:
@@ -694,11 +661,83 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 				summ = L('Ordner zum Verschieben auswaehlen')				
 				oc.add(DirectoryObject(key=Callback(FolderMenu, title=title, ID='moveto', preset_id=preset_id), 
 					title = title, summary=summ, thumb=R(ICON_FAV_MOVE) 
-				)) 								
+				)) 	
+											
+	Log(len(url_list))		
+	url_list = repl_dop(url_list)				# Doppler entfernen	
+	Log(len(url_list))		
 		
 	return oc
 #-----------------------------
-def get_pls(url):               # Playlist holen
+# Wrapper für getStreamMeta. Nutzung durch StationList + ListMRS
+#	Für jede Url erfolgt in getStreamMeta eine Headerauswertung; falls erforderlich wird die Url angepasst 
+#		(Anhängen von ";" oder "/;"), falls vorhanden werden bitrate + song für summary gespeichert. 
+#	Rückgabe: Liste der aktualisierten Url mit summary-Infos.
+#	url_list = Liste von Streamlinks aus Einzel-Url, .m3u- oder .pls-Dateien.
+#	
+def StreamTests(url_list,summ_org):
+	Log('StreamTests')
+	summ = ''
+	
+	lines = url_list.splitlines()
+	err_flag = False; err=''					# Auswertung nach Schleife	
+	url_list = []
+	line_cnt = 0								# Einzelzählung
+	for line in lines:
+		line_cnt = line_cnt + 1
+		Log('line %s: %s' % (line_cnt, line))
+		url = line
+
+		if url.startswith('http'):				# rtpm u.ä. ignorieren
+			if url.endswith('.mp3'):			# .mp3 bei getStreamMeta durchwinken
+				st=1; ret={}
+			else:
+				ret = getStreamMeta(url)		# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
+				st = ret.get('status')			# 	http://217.198.148.101:80/
+			Log('ret.get.status: ' + str(st))
+			
+			if st == 0:							# nicht erreichbar, verwerfen. Bsp. http://server-uk4.radioseninternetuy.com:9528
+				err = ret.get('error')			# Bsp.  City FM 92.9 (Taichung, Taiwan):
+				err = err + '\r\n' + url		#	URLError: timed out, http://124.219.41.230:8000/929.mp3
+				err_flag = True
+				Log(err)
+				# return ObjectContainer(header=L('Fehler'), message=err) # erst nach Durchlauf der Liste, s.u.
+				continue							
+			else:
+				if ret.get('metadata'):					# Status 1: Stream ist up, Metadaten aktualisieren (nicht .mp3)
+					metadata = ret.get('metadata')
+					Log('metadata:'); Log(metadata)						
+					bitrate = metadata.get('bitrate')	# bitrate aktualisieren, falls in Metadaten vorh.
+					Log(bitrate)
+					try:
+						song = metadata.get('song')		# mögl.: UnicodeDecodeError: 'utf8' codec can't decode..., Bsp.
+						song = song.decode('utf-8')		# 	'song': 'R\r3\x90\x86\x11\xd7[\x14\xa6\xe1k...
+						song = unescape(song)
+					except:
+						song=''
+						
+					Log('song: ' + str(song)); Log('bitrate: ' + str(bitrate))	# mind. bei bitrate None möglich
+					if song.find('adw_ad=') == -1:		# ID3-Tags (Indiz: adw_ad=) verwerfen
+						if bitrate and song:							
+							summ = 'Song: %s | Bitrate: %sKB' % (song, bitrate) # neues summary
+						if bitrate and song == '':	
+							summ = '%s | Bitrate: %sKB' % (summ_org, bitrate)		# altes summary ergänzen
+					Log('summ: ' + summ)		
+				if  ret.get('hasPortNumber') == 'true': # auch SHOUTcast ohne Metadaten möglich, Bsp. Holland FM Gran Canaria,
+					if url.endswith('/'):				#	http://stream01.streamhier.nl:9010
+						url = '%s;' % url
+					else:
+						url = '%s/;' % url
+				else:	
+					if url.endswith('.fm/'):			# Bsp. http://mp3.dinamo.fm/ (SHOUTcast-Stream)
+						url = '%s;' % url
+											
+			Log('append: ' + url)	
+			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject				
+	
+	return url_list, err_flag
+#-----------------------------
+def get_pls(url):               # Playlist extrahieren
 	Log('get_pls: ' + url)
 	urls =url.splitlines()	# mehrere möglich, auch SHOUTcast- und m3u-Links, Bsp. http://64.150.176.192:8043/, 
 
@@ -734,20 +773,20 @@ def get_pls(url):               # Playlist holen
 				# Log(headers)
 				cont = req.read()
 			except Exception as exception:	
-				error_txt = 'Servermessage2: ' + str(exception)
+				error_txt = 'Servermessage3: ' + str(exception)
 				error_txt = error_txt + '\r\n' + url
 				Log(error_txt)
 												# 3. Versuch
 		Log('cont2: ' + cont)
-		if '[playlist]' in cont or ['Playlist'] in cont:	# Streamlinks aus Playlist extrahieren 
-			lines =cont.splitlines()
-			for line in lines:	
-				if 'http' in line:	# Bsp. File1=http://195.150.20.9:8000/.., split in Verlauf StationList
-					pls_cont.append(cont)	
-		else:
-			if cont.startswith('http'):
-				pls_cont.append(cont)
-				 			 	 		   
+		if cont:								# Streamlinks aus Playlist extrahieren 
+			lines =cont.splitlines()	
+			for line in lines:					# Bsp. [playlist] NumberOfEntries=1 File1=http://s8.pop-stream.de:8650/
+				if line.startswith('http'):
+					pls_cont.append(cont)
+				if '=http' in line:				# Bsp. File1=http://195.150.20.9:8000/..
+					line_url = line.split('=')[1]
+					pls_cont.append(line_url)						
+		 			 	 		   
 	pls = pls_cont
 	lines = repl_dop(pls)
 	pls = '\n'.join(lines)
@@ -1276,10 +1315,111 @@ def FolderMenu(title, ID, preset_id, checkFiles=None, **kwargs):	#  unexpected k
 	return oc
 
 ####################################################################################################
-#							   Funktionen für Custom Playlist
+#							   Funktionen für Meine Radiostationen
 ####################################################################################################
+# ListMRS lädt eigene Datei "Meine Radiostationen" + listet die enthaltenen Stationen mit
+#	Name + Url. Button führt zu SingleMRS (trackobject nach Auswertung in StreamTests).
+#	path = lokale Textdatei
+#	Test  os.path.exists  bereits in Main erfolgt.
+# 
+@route(PREFIX + '/ListMRS')						
+def ListMRS(path):										
+	Log('ListMRS'); Log(path) 
+	title = L("Meine Radiostationen")
+	
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	oc = home(oc)					
 
+	try:
+		content = Resource.Load(path)
+	except:
+		content = ''
+		
+	if content == '' or content == None:
+		msg = L("nicht gefunden") + ': ' +  path
+		return ObjectContainer(header=L('Fehler'), message=msg)
 
+	lines = content.splitlines()
+	for line in lines:
+		line = line.strip()
+		if line.startswith('#') or line == '':	# skip comments
+			continue
+		try:
+			name,url = line.split('|')
+			name = name.strip(); url = url.strip() 
+			name =  name.decode('utf-8')
+		except:
+			name='';url=''
+		Log(name); Log(url); 
+		
+		if name=='' and url=='':
+			msg = L("fehlerhafte Datei") + ': ' +  path
+			return ObjectContainer(header=L('Fehler'), message=msg)
+		
+		oc.add(DirectoryObject(key=Callback(SingleMRS, name=name, url=url, image=R(ICON_MYRADIO)), 
+			title=name, summary=url, thumb=R(ICON_MYRADIO)))  	
+	
+	return oc
+#----------------------------------------------------------------
+#	Einzelstation zu ListMRS - Meta-Auswertung hier - könnte in ListMRS zum Timeout führen
+@route(PREFIX + '/SingleMRS')						
+def SingleMRS(name, url, image):										
+	Log('SingleMRS'); Log(url) 
+	
+	name = name.decode('utf-8')	
+	oc = ObjectContainer(title2=name, art=ObjectContainer.art)
+	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
+	client = Client.Platform
+	if client == None:
+		client = ''
+	if client.find ('Plex Home Theater'): # PHT verweigert TrackObject bei vorh. DirectoryObject
+		oc = home(oc)					
+
+	station_names = []
+	url_list = []
+	
+	if url.endswith('.pls') or url.endswith('.m3u'):
+		cont = get_pls(url)
+		cont = cont.splitlines()		# verkettete Strings
+		url_list = cont
+	else:
+		url_list.append(url)			# Einzel-Url
+	Log(url_list); Log (len(url_list))
+	if len(url_list) == 0:
+		msg=L('keinen Stream gefunden zu') 
+		message="%s %s" % (msg, name)
+		return ObjectContainer(header=L('Fehler'), message=message)
+	
+	url_list = '\n'.join(url_list)		# StreamTests erwartet Zeilen
+	url_list, err_flag =  StreamTests(url_list,summ_org='')
+	if len(url_list) == 0:
+		if err_flag == True:					# detaillierte Fehlerausgabe vorziehen, aber nur bei leerer Liste
+			msg=L('keinen Stream gefunden zu') 
+			message="%s %s" % (msg, name)
+			return ObjectContainer(header=L('Fehler'), message=message)
+	
+	i=1; 
+	for line in url_list:
+		Log(line)
+		url   = line.split('|||')[0]
+		server = url[:80] + '...'
+		try:
+			summ  = line.split('|||')[1]
+		except:
+			summ = url
+		summ  = '%s | %s' % (summ, server)
+		summ = summ.decode('utf-8')		# ev. für song erforderlich
+		if summ[1] == '|':
+			summ = summ[2:]
+		
+		fmt='mp3'								# Format nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX. Ermittlung
+		if 'aac' in url:						#	 in getStreamMeta (contenttype) hier bisher nicht genutzt
+			fmt='aac'
+		title = name + ' | Stream %s | %s'  % (str(i), fmt)
+		i=i+1
+		Log(url)
+		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
+	return oc
 
 ####################################################################################################
 #									Recording-Funktionen

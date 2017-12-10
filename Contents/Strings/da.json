@@ -59,5 +59,15 @@
 	"Ordner kann nicht entfernt werden": "folder kan ikke fjernes",
 	"hierhin verschieben": "flyt her",
 	"keine Eintraege gefunden": "ingen elementer fundet",
-	"Ordner zum Verschieben auswaehlen": "Vælg en folder som skal flyttes"
+	"Ordner zum Verschieben auswaehlen": "Vælg en folder som skal flyttes",
+	"minimale Bitrate": "",
+	"Starte Plugin nur mit Meine Radiostationen": "",
+	"kompletter Pfad zu Meine Radiostationen": "",
+	"Meine Radiostationen": "",
+	"Datei nicht gefunden": "",
+	"Bitte den Eintrag in Einstellungen ueberpruefen!": "",
+	"fehlerhafte Datei": "",
+	"Eintrag fehlt fuer Url oder Name": "",
+	"Custom Url muss mit http beginnen": ""
 }
+

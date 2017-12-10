@@ -1,0 +1,51 @@
+# My Radiostations - Part of TuneIn2017
+#
+#	Format:
+#		# comment line
+#		# Stream-Url must start with http
+#		# Stream-Url can be a single url or a link to stream lists (.m3u or .pls)
+#
+#		My Station 1 | http://mystreamurl1.com:8000
+#		My Station 2 | http://mystreamurl2.com/listen.m3u
+#
+#		
+#		
+#
+#	Place your own copy outside of the plugin and put the path in preferences
+#	(complete path to My Radiostations).
+#	Add / remove entries as you like.
+#	
+#	If you want start only with this stations switch the option in preferences.
+
+#	Examples are extracted from https://wiki.ubuntuusers.de/Internetradio/Stationen/
+
+#---------------------------------------------------------------------------------------
+#
+
+# England
+#	friskyRadio - example for multiple url 
+friskyRadio (England) | http://www.friskyradio.com/frisky.m3u
+87.7 Bailrigg FM (England) | http://stream.radio.lancs.ac.uk/32.mp3.m3u
+
+# Germany	
+Dolfijn FM (Germany) | http://85.214.231.253:8080/stream.mp3
+Querfunk  (Germany, Karlsruhe) | http://mp3.querfunk.de/qfhi
+RundFunk Meißner Eschwege (Germany) | http://s8.pop-stream.de:8650/listen.pls
+Radio Unerhört Marburg (Germany) | http://stream.radio-rum.de:8000/rum.mp3.m3u
+bigFM (Germany) | http://srv05.bigstreams.de/bigfm-mp3-64.m3u
+
+
+
+# ################ 2 not available Url - only for debugging: ############################
+# 
+#  	Servermessage3: Name or service not known - message in gui
+# SUBFLOW.NET (England) | http://www.subflow.net:8004/listen.pls
+#	URL-Error: [Errno -2] Name or service not known - message only in Plugin-Log
+# Bassdrive (England) | http://shouthostdirect13.streams.bassdrive.com:8202
+
+
+
+
+
+
+

@@ -114,6 +114,21 @@
 				],
 		"default": 	  "25"
 	},    
+	{
+		"id": "minBitrate",
+		"type": "enum",
+		"label": "Minimum Bitrate",
+		"values": [
+			"",
+			"64 kbps",
+			"96 kbps",
+			"128 kbps",
+			"192 kbps",
+			"256 kbps",
+			"320 kbps"
+		],
+		"default": "",
+	},
 	{	
 		"id": "UseFavourites",
 		"label": "Favoriten hinzufuegen/entfernen",
@@ -123,6 +138,12 @@
 	{	
 		"id": "StartWithFavourits",
 		"label": "Starte Plugin nur mit Favoriten (TuneIn-Account erforderlich)",
+		"type": "bool",
+		"default": "false"
+	},
+	{	
+		"id": "StartWithMyRadioStations",
+		"label": "Starte Plugin nur mit Meine Radiostationen",
 		"type": "bool",
 		"default": "false"
 	},
@@ -142,6 +163,12 @@
 		"id": "custom_name",
 		"type": "text",
 		"label": "Custom Url: Name der Radiostation (Beispiel: MyRadio)",
+		"default": ""
+	},
+	{
+		"id": "MyRadioStations",
+		"type": "text",
+		"label": "kompletter Pfad zu Meine Radiostationen",
 		"default": ""
 	},
 	{
