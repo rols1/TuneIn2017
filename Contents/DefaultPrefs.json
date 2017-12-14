@@ -117,7 +117,7 @@
 	{
 		"id": "minBitrate",
 		"type": "enum",
-		"label": "Minimum Bitrate",
+		"label": "Minimale Bitrate",
 		"values": [
 			"",
 			"64 kbps",
@@ -127,7 +127,22 @@
 			"256 kbps",
 			"320 kbps"
 		],
-		"default": "",
+		"default": ""
+	},
+	{
+		"id": "maxStreamsPerStation",
+		"type": "enum",
+		"label": "maximale Anzahl Streams pro Station (kann Timeouts verhindern)",
+		"values": [
+			"",
+			"1",
+			"2",
+			"3",
+			"4",
+			"5",
+			"6"
+		],
+		"default": ""
 	},
 	{	
 		"id": "UseFavourites",

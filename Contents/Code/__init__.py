@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.9.2'		
-VDATE = '10.12.2017'
+VERSION =  '0.9.7'		
+VDATE = '14.12.2017'
 
 # 
 #	
@@ -36,6 +36,14 @@ VDATE = '10.12.2017'
 # FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 # DEALINGS IN THE SOFTWARE.
+
+# Wikipedia:	https://de.wikipedia.org/wiki/TuneIn
+#				https://de.wikipedia.org/wiki/Internetradio
+#				https://de.wikipedia.org/wiki/Streaming-Format
+#				https://de.wikipedia.org/wiki/Audioformat
+#
+# Wicki Ubuntu: https://wiki.ubuntuusers.de/Internetradio/Stationen/
+
 
 ICON_OK 				= "icon-ok.png"
 ICON_WARNING 			= "icon-warning.png"
@@ -81,6 +89,7 @@ REPO_URL 			= 'https://github.com/{0}/releases/latest'.format(GITHUB_REPOSITORY)
 
 # Globale Variablen für Tunein:
 partnerId		= 'RadioTime'
+
 
 ####################################################################################################
 def Start():
@@ -489,7 +498,7 @@ def Rubriken(url, title, image, offset=0):
 						title = title, summary=summ, thumb=R(ICON_FOLDER_REMOVE) 
 					))
 					
-				# Button für Custom Url - Custom Playlist wird autom. geladen
+				# Button für Custom Url 
 				# Einstellungen:  Felder Custom Url/Name müssen ausgefüllt sein, Custom Url mit http starten
 				#	Custom Url wird hier nur hinzugefügt - Verschieben + Löschen erfolgt als Favorit in
 				#		StationList 
@@ -622,6 +631,8 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 		server = url[:80] + '...'
 		summ  = '%s | %s' % (summ, server)
 		summ = summ.decode('utf-8')
+		if summ.strip().startswith('|'):
+			summ = summ[2:]
 		
 		fmt='mp3'								# Format nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX. Ermittlung
 		if 'aac' in url:						#	 in getStreamMeta (contenttype) hier bisher nicht genutzt
@@ -676,15 +687,21 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 #	url_list = Liste von Streamlinks aus Einzel-Url, .m3u- oder .pls-Dateien.
 #	
 def StreamTests(url_list,summ_org):
-	Log('StreamTests')
+	Log('StreamTests');
 	summ = ''
+	
+	max_streams = 0								# Default: keine Begrenzung
+	if Prefs['maxStreamsPerStation']:
+		max_streams = int(Prefs['maxStreamsPerStation'])	# max. Anzahl Einträge ab offset
+	Log('max_streams: ' + str(max_streams))
 	
 	lines = url_list.splitlines()
 	err_flag = False; err=''					# Auswertung nach Schleife	
 	url_list = []
 	line_cnt = 0								# Einzelzählung
+	max_streams = int(max_streams)
 	for line in lines:
-		line_cnt = line_cnt + 1
+		line_cnt = line_cnt + 1			
 		Log('line %s: %s' % (line_cnt, line))
 		url = line
 
@@ -734,20 +751,32 @@ def StreamTests(url_list,summ_org):
 											
 			Log('append: ' + url)	
 			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject				
-	
+			if max_streams:							# Limit gesetzt?
+				if line_cnt > max_streams:
+					break 
 	return url_list, err_flag
 #-----------------------------
 def get_pls(url):               # Playlist extrahieren
 	Log('get_pls: ' + url)
+	
+	# erlaubte Playlist-Formate - Endungen oder Fragmente der Url:
+	#	Bsp. http://www.asfradio.com/launch.asp?p=pls
+	format_list = ['.pls', '.m3u', '=pls', '=m3u', '=ram', '=asx']
+	
 	urls =url.splitlines()	# mehrere möglich, auch SHOUTcast- und m3u-Links, Bsp. http://64.150.176.192:8043/, 
-
 	pls_cont = []
 	for url in urls:
 		# Log(url)
-		cont = url
+		cont = url.strip()
 		if url.startswith('http') == False:		# Sicherung, falls Zeile keine Url enthält (bisher aber nicht gesehen)
 			continue
-		if 	'.pls' in url or url.endswith('.m3u'):	# .pls auch im Pfad möglich, Bsp. AFN: ../AFNE_WBN.pls?DIST=TuneIn&TGT=..
+		isInFormatList = False	
+		for pat in format_list:				# Url mit Playlists
+			if pat in url:	
+				isInFormatList = True		
+				break
+		
+		if 	isInFormatList:	# .pls auch im Pfad möglich, Bsp. AFN: ../AFNE_WBN.pls?DIST=TuneIn&TGT=..
 			try:									# 1. Versuch (klappt mit KSJZ.db unter Linux, nicht unter Windows)
 				cont = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>	
 			except: 	
@@ -781,13 +810,17 @@ def get_pls(url):               # Playlist extrahieren
 		if cont:								# Streamlinks aus Playlist extrahieren 
 			lines =cont.splitlines()	
 			for line in lines:					# Bsp. [playlist] NumberOfEntries=1 File1=http://s8.pop-stream.de:8650/
+				line = line.strip()
 				if line.startswith('http'):
-					pls_cont.append(cont)
+					pls_cont.append(line)
 				if '=http' in line:				# Bsp. File1=http://195.150.20.9:8000/..
 					line_url = line.split('=')[1]
 					pls_cont.append(line_url)						
 		 			 	 		   
 	pls = pls_cont
+	if pls == '':
+		Log('pls leer')
+		return pls
 	lines = repl_dop(pls)
 	pls = '\n'.join(lines)
 	pls = pls.strip()
@@ -848,13 +881,15 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 	return typ,local_url,text,image,key,subtext,bitrate,preset_id
 	
 #-----------------------------
+# Codecs, Protocols ... s. Framework/api/constkit.py
+#	DirectPlayProfiles s. Archiv/TuneIn2017/00_Hinweis.txt
 @route(PREFIX + '/CreateTrackObject')
 def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, location=None, 
 		includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('CreateTrackObject: ' + url); Log(include_container)
 	Log(title);Log(summary);Log('fmt: ' + fmt);Log(thumb);
 
-	if fmt == 'mp3':
+	if fmt == 'mp3' or fmt == 'ogg':
 		container = Container.MP3
 		# container = 'mp3'
 		audio_codec = AudioCodec.MP3
@@ -866,6 +901,9 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 		protocol = 'hls'
 		container = 'mpegts'
 		audio_codec = AudioCodec.AAC	
+	elif fmt == 'asf':						# klappt nicht mit  http://mediau.yle.fi/liveklassinen?MSWMExt=.asf 
+		container = 'asf'
+		audio_codec = audioCodec = 'wmav2'
 
 	title = title.decode(encoding="utf-8", errors="ignore")
 	summary = summary.decode(encoding="utf-8", errors="ignore")
@@ -923,7 +961,7 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 			# Check auf HTML-/Textseite - vermutl. falsche Custom Url:
 			if 'text/html' in str(headers):
 				Log('Error: Textpage ' + url)
-				return Redirect(R('textpage.mp3'))	
+				return Redirect(R('textpage.mp3'))			# mp3: not a stream - this is a text page
 			
 		except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
 			error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
@@ -1318,7 +1356,7 @@ def FolderMenu(title, ID, preset_id, checkFiles=None, **kwargs):	#  unexpected k
 #							   Funktionen für Meine Radiostationen
 ####################################################################################################
 # ListMRS lädt eigene Datei "Meine Radiostationen" + listet die enthaltenen Stationen mit
-#	Name + Url. Button führt zu SingleMRS (trackobject nach Auswertung in StreamTests).
+#	Name + Url. Der Button führt zu SingleMRS (trackobject nach Auswertung in StreamTests).
 #	path = lokale Textdatei
 #	Test  os.path.exists  bereits in Main erfolgt.
 # 
@@ -1339,12 +1377,17 @@ def ListMRS(path):
 		msg = L("nicht gefunden") + ': ' +  path
 		return ObjectContainer(header=L('Fehler'), message=msg)
 
+	max_streams=0										# Limit default
 	lines = content.splitlines()
+	i=0
 	for line in lines:
+		i=i+1
 		line = line.strip()
-		if line.startswith('#') or line == '':	# skip comments
+		if line.startswith('#') or line == '':			# skip comments
 			continue
 		try:
+			if '#' in line:
+				line = line.split('#')[0]				# Kommentar Zeilenende
 			name,url = line.split('|')
 			name = name.strip(); url = url.strip() 
 			name =  name.decode('utf-8')
@@ -1353,19 +1396,25 @@ def ListMRS(path):
 		Log(name); Log(url); 
 		
 		if name=='' and url=='':
-			msg = L("fehlerhafte Datei") + ': ' +  path
+			msg = L("fehlerhafte Datei") + ': ' +  path + ' in line %s' % str(i)
 			return ObjectContainer(header=L('Fehler'), message=msg)
 		
-		oc.add(DirectoryObject(key=Callback(SingleMRS, name=name, url=url, image=R(ICON_MYRADIO)), 
+		oc.add(DirectoryObject(key=Callback(SingleMRS, name=name, url=url, 
+			max_streams=max_streams, image=R(ICON_MYRADIO)), 
 			title=name, summary=url, thumb=R(ICON_MYRADIO)))  	
 	
 	return oc
 #----------------------------------------------------------------
 #	Einzelstation zu ListMRS - Meta-Auswertung hier - könnte in ListMRS zum Timeout führen
 @route(PREFIX + '/SingleMRS')						
-def SingleMRS(name, url, image):										
+def SingleMRS(name, url, max_streams, image):										
 	Log('SingleMRS'); Log(url) 
 	
+	if url.startswith('http') == False: 
+		error_txt = L('Custom Url muss mit http beginnen') + ':\n' + url
+		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		return ObjectContainer(header=L('Fehler'), message=error_txt)	
+							
 	name = name.decode('utf-8')	
 	oc = ObjectContainer(title2=name, art=ObjectContainer.art)
 	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
@@ -1375,22 +1424,26 @@ def SingleMRS(name, url, image):
 	if client.find ('Plex Home Theater'): # PHT verweigert TrackObject bei vorh. DirectoryObject
 		oc = home(oc)					
 
-	station_names = []
-	url_list = []
-	
-	if url.endswith('.pls') or url.endswith('.m3u'):
-		cont = get_pls(url)
-		cont = cont.splitlines()		# verkettete Strings
-		url_list = cont
+	if 'Tune.ashx?' in url:						# TuneIn-Link ebenfalls ermöglichen, Inhalt laden
+		try:
+			url_list = HTTP.Request(url).content
+		except Exception as exception:			
+			url_list = ''
+		if url_list == '' or 'error' in url_list:
+			error_txt = 'My Radiostations - url error:' + '\r\n' + url
+			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+			return ObjectContainer(header=L('Fehler'), message=error_txt)
+		Log(url_list)	
+		url_list = get_pls(url_list)		
 	else:
-		url_list.append(url)			# Einzel-Url
-	Log(url_list); Log (len(url_list))
-	if len(url_list) == 0:
+		url_list = get_pls(url)				# Streamlinks extrahieren, ev. mit Zertifikat
+		
+	Log(url_list); 
+	if url_list == '':
 		msg=L('keinen Stream gefunden zu') 
 		message="%s %s" % (msg, name)
 		return ObjectContainer(header=L('Fehler'), message=message)
 	
-	url_list = '\n'.join(url_list)		# StreamTests erwartet Zeilen
 	url_list, err_flag =  StreamTests(url_list,summ_org='')
 	if len(url_list) == 0:
 		if err_flag == True:					# detaillierte Fehlerausgabe vorziehen, aber nur bei leerer Liste
@@ -1398,7 +1451,7 @@ def SingleMRS(name, url, image):
 			message="%s %s" % (msg, name)
 			return ObjectContainer(header=L('Fehler'), message=message)
 	
-	i=1; 
+	i=1;
 	for line in url_list:
 		Log(line)
 		url   = line.split('|||')[0]
@@ -1409,15 +1462,18 @@ def SingleMRS(name, url, image):
 			summ = url
 		summ  = '%s | %s' % (summ, server)
 		summ = summ.decode('utf-8')		# ev. für song erforderlich
-		if summ[1] == '|':
+		if summ.strip().startswith('|'):
 			summ = summ[2:]
 		
 		fmt='mp3'								# Format nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX. Ermittlung
 		if 'aac' in url:						#	 in getStreamMeta (contenttype) hier bisher nicht genutzt
 			fmt='aac'
+		if url.endswith('.asf') or '=asf' in url: # Achtung: www.asfradio.com
+			fmt='asf'
+		if url.endswith('.ogg') : 				# .ogg in http://mp3.radiox.ch:8000/standard.ogg.m3u
+			fmt='ogg'
 		title = name + ' | Stream %s | %s'  % (str(i), fmt)
 		i=i+1
-		Log(url)
 		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
 	return oc
 

@@ -63,7 +63,7 @@
 	"Starte Plugin nur mit Favoriten (TuneIn-Account erforderlich)": "Starte Plugin nur mit Favoriten (TuneIn-Account erforderlich)",
 	"Custom Url: Url der Radiostation (Beispiel: http://myradio/live/stream.mp3)": "Custom Url: Url der Radiostation (Beispiel: http://myradio/live/stream.mp3)",
 	"Custom Url: Name der Radiostation (Beispiel: MyRadio)": "Custom Url: Name der Radiostation (Beispiel: MyRadio)",
-	"minimale Bitrate": "minimale Bitrate",
+	"Minimale Bitrate": "Minimale Bitrate",
 	"Starte Plugin nur mit Meine Radiostationen": "Starte Plugin nur mit Meine Radiostationen",
 	"kompletter Pfad zu Meine Radiostationen": "kompletter Pfad zu Meine Radiostationen",
 	"Meine Radiostationen": "Meine Radiostationen",
@@ -71,7 +71,8 @@
 	"Bitte den Eintrag in Einstellungen ueberpruefen!": "Bitte den Eintrag in Einstellungen ueberprüfen!",
 	"fehlerhafte Datei": "fehlerhafte Datei",
 	"Eintrag fehlt fuer Url oder Name": "Eintrag fehlt fuer Url oder Name",
-	"Custom Url muss mit http beginnen": "Custom Url muss mit http beginnen"
+	"Custom Url muss mit http beginnen": "Custom Url muss mit http beginnen",
+	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maximale Anzahl Streams pro Station (kann Timeouts verhindern)"
 }
 
 

@@ -3,6 +3,14 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+14.12.2017	0.9.7	Update language-files: Danish (Tommy Mikkelsen), French (Joyfik).
+			myradiostations.txt updated. 
+not on github	0.9.6	Option max_streams_per_station added (interpreted in StreamTests).			
+not on github	0.9.5	MyRadioStations: now Tune.ashx-Url valid, interpreted in SingleMRS.
+			ListMRS: line number added to error message "corrupted file".
+not on github	0.9.4	Format list added (valid playlist-formats) (interpreted in get_pls).
+not on github	0.9.3	StationList: leading '|' in summary for CreateTrackObject fixed. 
+			DefaultPrefs.json: redundant comma replaced.
 10.12.2017	0.9.2	Option StartWithMyRadioStations: code, terms added.	
 not on github	0.9.1	Option "Minimum Bitrate" in Preferences added - Code in function Rubriken.
 not on github	0.9.0	Icons in Resources revised, terms in language files added.
