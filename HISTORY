@@ -2,7 +2,15 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-
+25.12.2017	1.0.2	StreamTests: Recognizing of Shoutcast-streams without portnumber, without path.	
+not on github	1.0.1	Special solution for Soma-Stations with forwarding to itunes-url: load playlist
+			with http-url.
+not on github	1.0.0	PlayAudio: output mp3-message (not available) if playlists could be loaded,
+			but url quits with http-error.
+not on github	0.9.9	StationList: fix Tunein-return "#STATUS: 400" - output user-message.	
+			StreamTests: fix condition-value for line-counter ('>=' instead of '>').
+not on github	0.9.8	SingleMRS + StationList: output Servermessage3 if get_pls fails.
+			get_pls: detection redirections to itunes-url - Servermessage3 adjusted.	
 14.12.2017	0.9.7	Update language-files: Danish (Tommy Mikkelsen), French (Joyfik).
 			myradiostations.txt updated. 
 not on github	0.9.6	Option max_streams_per_station added (interpreted in StreamTests).			

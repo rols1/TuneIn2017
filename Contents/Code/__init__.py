@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '0.9.7'		
-VDATE = '14.12.2017'
+VERSION =  '1.0.2'		
+VDATE = '25.12.2017'
 
 # 
 #	
@@ -594,6 +594,11 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 		if cont == '':
 			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
 			return ObjectContainer(header=L('Fehler'), message=error_txt)		
+		if ': 400' in cont:				# passiert (manchmal) bei 'neuer Versuch' (mit preset_id)
+			error_txt = L("keinen Stream gefunden zu")  + '\r\n' + url  + '\r\n' + 'Tunein: %s' % cont
+			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+			Log(error_txt)
+			return ObjectContainer(header=L('Fehler'), message=error_txt)		
 		Log('Tune.ashx_content: ' + cont)
 	else:										# ev. CustomUrl - key="presetUrls"> - direkter Link zur Streamquelle
 		cont = url
@@ -702,7 +707,7 @@ def StreamTests(url_list,summ_org):
 	max_streams = int(max_streams)
 	for line in lines:
 		line_cnt = line_cnt + 1			
-		Log('line %s: %s' % (line_cnt, line))
+		Log('line %s (max. %s): %s' % (line_cnt, str(max_streams), line))
 		url = line
 
 		if url.startswith('http'):				# rtpm u.ä. ignorieren
@@ -748,11 +753,18 @@ def StreamTests(url_list,summ_org):
 				else:	
 					if url.endswith('.fm/'):			# Bsp. http://mp3.dinamo.fm/ (SHOUTcast-Stream)
 						url = '%s;' % url
-											
+					else:								# ohne Portnummer, ohne Pfad: letzter Test auf Shoutcast-Status 
+						p = urlparse(url)
+						if p.path == '':
+							cont = HTTP.Request(url).content# Bsp. Radio Soma -> http://live.radiosoma.com
+							if 	'<b>Stream is up at' in cont:
+								Log('Shoutcast ohne Portnummer: <b>Stream is up at')
+								url = '%s/;' % url	
+																		
 			Log('append: ' + url)	
 			url_list.append(url + '|||' + summ)			# Liste für CreateTrackObject				
 			if max_streams:							# Limit gesetzt?
-				if line_cnt > max_streams:
+				if line_cnt >= max_streams:
 					break 
 	return url_list, err_flag
 #-----------------------------
@@ -792,28 +804,46 @@ def get_pls(url):               # Playlist extrahieren
 		#	Bsp.: KSJZ.db SmoothLounge, Playlist http://smoothlounge.com/streams/smoothlounge_128.pls
 		# Ansatz, falls dies unter Windows fehlschlägt: in der url-Liste nach einzelner HTP-Adresse (ohne .pls) suchen
 		
-		if cont == '':							# 2. Versuch
+		if cont == '':								# 2. Versuch
 			try:
 				req = urllib2.Request(url)
 				cafile = Core.storage.abs_path(Core.storage.join_path(MyContents, 'Resources', 'ca-bundle.pem'))		
 				Log(cafile)
 				req = urllib2.urlopen(req, cafile=cafile, timeout=UrlopenTimeout) 
-				# headers = getHeaders(req)		# bei Bedarf
+				# headers = getHeaders(req)			# bei Bedarf
 				# Log(headers)
 				cont = req.read()
 			except Exception as exception:	
 				error_txt = 'Servermessage3: ' + str(exception)
-				error_txt = error_txt + '\r\n' + url
-				Log(error_txt)
-												# 3. Versuch
-		Log('cont2: ' + cont)
-		if cont:								# Streamlinks aus Playlist extrahieren 
+				# Rettungsversuch - hilft bei SomaFM-Stationen:
+				# HTTP Error 302: Found - Redirection to url 'itunes://somafm.com/xmasrocks130.pls?bugfix=safari7' is not allowed
+				if 'itunes://' in error_txt:	# Bsp. http://api.somafm.com/xmasrocks130.pls
+					Log(url)
+					Log(str(exception))
+					url=stringextract('\'', '\'', str(exception))
+					url=url.replace('itunes://', 'http://')
+					Log('neue itunes-url: ' + url)
+					req = urllib2.Request(url)		# 3. Versuch
+					req = urllib2.urlopen(req, cafile=cafile, timeout=UrlopenTimeout) 
+					cont = req.read()					
+					Log(cont)
+					if '[playlist]' in cont:
+						pass
+					else:
+						error_txt = 'Servermessage3: itunes-Url not supported by this plugin.' + '\r\n' + str(exception)
+						return error_txt
+				else:	
+					error_txt = error_txt + '\r\n' + url
+					Log(error_txt)
+					return error_txt
+												
+		if cont:									# Streamlinks aus Playlist extrahieren 
 			lines =cont.splitlines()	
-			for line in lines:					# Bsp. [playlist] NumberOfEntries=1 File1=http://s8.pop-stream.de:8650/
+			for line in lines:						# Bsp. [playlist] NumberOfEntries=1 File1=http://s8.pop-stream.de:8650/
 				line = line.strip()
 				if line.startswith('http'):
 					pls_cont.append(line)
-				if '=http' in line:				# Bsp. File1=http://195.150.20.9:8000/..
+				if '=http' in line:					# Bsp. File1=http://195.150.20.9:8000/..
 					line_url = line.split('=')[1]
 					pls_cont.append(line_url)						
 		 			 	 		   
@@ -969,7 +999,8 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 			msgH = L('Fehler'); msg = error_txt				# Textausgabe: 	This station is suspended, if...
 			msg =  msg.decode(encoding="utf-8", errors="ignore")
 			Log(msg)
-			url=''
+			#url=''
+			url=GetLocalUrl()
 			# return ObjectContainer(header=msgH, message=msg) # Framework fängt ab - keine Ausgabe
 	else:		
 		if 'notcompatible.enUS.mp3' in url:
@@ -1443,6 +1474,10 @@ def SingleMRS(name, url, max_streams, image):
 		msg=L('keinen Stream gefunden zu') 
 		message="%s %s" % (msg, name)
 		return ObjectContainer(header=L('Fehler'), message=message)
+		
+	if url_list.startswith('Servermessage3'): 					# z.B: Redirection to url ..  is not allowed, einschl. 
+		cont = cont.decode(encoding="utf-8", errors="ignore")	# itunes-Url not supported by this plugin
+		return ObjectContainer(header=L('Fehler'), message=cont)	
 	
 	url_list, err_flag =  StreamTests(url_list,summ_org='')
 	if len(url_list) == 0:

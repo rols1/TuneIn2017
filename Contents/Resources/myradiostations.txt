@@ -70,6 +70,18 @@ Bayern 1 | http://br-br1-obb.cast.addradio.de/br/br1/obb/mp3/128/stream.mp3
 Bayern 3 | http://br-br3-live.cast.addradio.de/br/br3/live/mp3/128/stream.mp3
 
 ######################################################################################
+# ####################### Soma FM https://somafm.com/ ################################
+# For more Stations do a search in Plugin with "somafm"
+# 
+SomaFM: Space Station Soma | http://opml.radiotime.com/Tune.ashx?id=s53125
+SomaFM: Drone Zone | http://opml.radiotime.com/Tune.ashx?id=s51002
+SomaFM: Xmas in Frisko | http://opml.radiotime.com/Tune.ashx?id=s95241
+SomaFM: Dub Step Beyond | http://opml.radiotime.com/Tune.ashx?id=s169654
+SomaFM: Groove Salad | http://opml.radiotime.com/Tune.ashx?id=s2591
+SomaFM: Earwaves | http://opml.radiotime.com/Tune.ashx?id=s206474
+
+######################################################################################
+
 ################## only for debugging - not available Url ############################
 # 
 # SUBFLOW.NET (England) | http://www.subflow.net:8004/listen.pls # Name or service not known	
