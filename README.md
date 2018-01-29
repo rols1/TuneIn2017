@@ -31,7 +31,6 @@ https://github.com/rols1/TuneIn2017/wiki/Pictures-and-Contexts-for-the-Localisat
 * Przemo - Polish
 * Vlad - Ukrainian
 * Joyfik - French
-* Georgi - Bulgarian
 
 UPDATES:
 ===================  
