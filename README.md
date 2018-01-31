@@ -51,7 +51,7 @@ Credits:
  
 Bilder / Pictures:
 ===================  
-![img](https://us.v-cdn.net/6025034/uploads/editor/iw/x00gmcprclcw.png)
+![img](https://github.com/rols1/PluginPictures/blob/master/Misc/Menu.png?raw=true)
 
 ![img](https://us.v-cdn.net/6025034/uploads/editor/wr/9d299awck10x.png)
 
