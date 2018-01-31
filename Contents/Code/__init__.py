@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.0.2'		
-VDATE = '25.12.2017'
+VERSION =  '1.0.4'		
+VDATE = '31.01.2018'
 
 # 
 #	
@@ -79,6 +79,7 @@ MENU_ICON 	=  	{'menu-lokale.png', 'menu_kuerzlich.png', 'menu-trend.png', 'menu
 ROOT_URL 	= 'http://opml.radiotime.com/Browse.ashx?formats=%s'
 USER_URL 	= 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
 NEWS_URL	= 'http://opml.radiotime.com/Browse.ashx?id=c57922&formats=%s'
+TREND_URL	= 'http://tunein.com/radio/trending/'
 
 PREFIX 		= '/music/tunein2017'
 
@@ -219,6 +220,7 @@ def Main():
 	Log(Prefs['PlusAAC'])								
 	if  Prefs['PlusAAC'] == False:					# Performance, aac ist bei manchen Sendern nicht erreichbar
 		formats = 'mp3'
+	Dict['formats'] = formats						# Verwendung z.B. in RubrikTrend
 	
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
@@ -227,7 +229,7 @@ def Main():
 	# req.add_header('Accept-Encoding',  'gzip, deflate, br')			# Performance, klappt nicht in Plex
 	ret = urllib2.urlopen(req)
 	page = ret.read()
-	
+		
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 	rubriken = blockextract('<outline', page)
 	for rubrik in rubriken:							# bitrate hier n.b.
@@ -241,7 +243,10 @@ def Main():
 		))
 													# Nachrichten anhängen
 	oc.add(DirectoryObject(key = Callback(Rubriken, url=NEWS_URL % formats, title='NEWS', image=R('menu-news.png')),	
-		title = 'NEWS', summary='NEWS', thumb = R('menu-news.png'))) 
+		title = 'NEWS', thumb = R('menu-news.png')))
+													# "im Trend" anhängen
+	oc.add(DirectoryObject(key = Callback(RubrikTrend, url=TREND_URL, title='TREND', image=R('menu-trend.png')),	
+		title = 'TREND', thumb = R('menu-trend.png'))) 
 
 #-----------------------------	
 	Log(Prefs['UseRecording'])
@@ -313,7 +318,7 @@ def getMenuIcon(key):	# gibt zum key passendes Icon aus MENU_ICON zurück
 		elif key == 'language':
 			icon = 'menu-sprachen.png'
 		elif key == 'podcast':
-			icon = 'menu-talk.png'
+			icon = 'menu-pod.png'
 	return icon	
 #-----------------------------
 @route(PREFIX + '/Search')
@@ -542,6 +547,51 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	Log(len(oc))	
 	return oc					
 	
+#-----------------------------
+# Rubrik Trend - Sonderbehandlung, nicht via opml-Request erreichbar
+#	die regionale Zuordnung steuern wir über die Header Accept-Language und CONSENT (Header-
+#		Auswertung Chrome).
+# 	Die Auswertung erfolgt mittels Stringfunktionen, da die Ausgabe weder im xml- noch im json-Format
+#		erzwungen werden kann.
+@route(PREFIX + '/RubrikTrend')		
+def RubrikTrend(url, title, image):
+	Log('RubrikTrend: ' + url)
+	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)
+	
+	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
+	req = urllib2.Request(url)						# xml-Übersicht Rubriken
+	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
+	req.add_header('CONSENT', loc_browser)			# Browser: 'CONSENT', 'YES+DE.de+V9')
+	gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
+	ret = urllib2.urlopen(req, context=gcontext)
+	page = ret.read()
+	# headers = ret.headers.dict					# bei Bedarf
+	# Log(headers)
+
+	page=stringextract('"containerItems":', '"player":', page)	# json-artiger Bereich
+	stations=blockextract('type":"Station"', page)
+	Log('Stationen: ' + str(len(stations)))
+	
+	for station in stations:
+		text=stringextract('"title":"', '"', station)		# Sendername
+		typ='Station'					# immer Station		
+		image=stringextract('"image":"', '"', station)		# Javascript Unicode escape \u002F
+		image=image.replace('\u002F', '/')
+		key='?'							# fehlt - stringextract('', '"', station)
+		bitrate='?'						# fehlt, ? für PHT
+		subtext=stringextract('"subtitle":"', '"', station)
+		subtext=subtext.decode(encoding="utf-8")
+		preset_id =stringextract('"id":"', '"', station)	# dto. targetItemId, scope, guideId
+		local_url="http://opml.radiotime.com/Tune.ashx?id=%s&formats=%s"	% (preset_id, Dict['formats'])
+		# Log("%s | %s | %s | %s"	% (typ,text,subtext,preset_id))	# bei Bedarf
+		# Log(local_url)
+		oc.add(DirectoryObject(
+			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
+			preset_id=preset_id),
+			title=text, summary=subtext, tagline=bitrate, thumb=image 	
+		)) 
+
+	return oc
 #-----------------------------
 # Auswertung der Streamlinks:
 #	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
@@ -827,7 +877,7 @@ def get_pls(url):               # Playlist extrahieren
 					req = urllib2.urlopen(req, cafile=cafile, timeout=UrlopenTimeout) 
 					cont = req.read()					
 					Log(cont)
-					if '[playlist]' in cont:
+					if '[playlist]' in cont:		# nochmal gut gegangen
 						pass
 					else:
 						error_txt = 'Servermessage3: itunes-Url not supported by this plugin.' + '\r\n' + str(exception)
@@ -864,7 +914,8 @@ def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werde
 	
 	m3u_cont = []
 	for url in urls:	
-		if url.startswith('http') and url.endswith('.m3u'):		
+		# Bsp. http://icy3.abacast.com/progvoices-progvoicesmp3-32.m3u?source=TuneIn
+		if url.startswith('http') and '.m3u' in url:	
 			try:									
 				req = HTTP.Request(url).content 
 				req = urllib2.unquote(req).strip()	
@@ -1476,7 +1527,8 @@ def SingleMRS(name, url, max_streams, image):
 		return ObjectContainer(header=L('Fehler'), message=message)
 		
 	if url_list.startswith('Servermessage3'): 					# z.B: Redirection to url ..  is not allowed, einschl. 
-		cont = cont.decode(encoding="utf-8", errors="ignore")	# itunes-Url not supported by this plugin
+		cont = url_list.join(' | ')								# itunes-Url not supported by this plugin
+		cont = cont.decode(encoding="utf-8")	
 		return ObjectContainer(header=L('Fehler'), message=cont)	
 	
 	url_list, err_flag =  StreamTests(url_list,summ_org='')

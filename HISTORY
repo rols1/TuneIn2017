@@ -2,6 +2,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+31.01.2018	1.0.4	Added: menu Trend - function RubrikTrend.
+not on github	1.0.3	SingleMRS: fix empty variable "cont", compose Servermessage3.
+			getMenuIcon: fix wrong icon for Podcast.
+			get_m3u: fix url with '.m3u' in url (not only at the end).
 25.12.2017	1.0.2	StreamTests: Recognizing of Shoutcast-streams without portnumber, without path.	
 not on github	1.0.1	Special solution for Soma-Stations with forwarding to itunes-url: load playlist
 			with http-url.
@@ -14,7 +18,7 @@ not on github	0.9.8	SingleMRS + StationList: output Servermessage3 if get_pls fa
 14.12.2017	0.9.7	Update language-files: Danish (Tommy Mikkelsen), French (Joyfik).
 			myradiostations.txt updated. 
 not on github	0.9.6	Option max_streams_per_station added (interpreted in StreamTests).			
-not on github	0.9.5	MyRadioStations: now Tune.ashx-Url valid, interpreted in SingleMRS.
+not on github	0.9.5	MyRadioStations: now Tune.ashx-Url are valid, interpreted in SingleMRS.
 			ListMRS: line number added to error message "corrupted file".
 not on github	0.9.4	Format list added (valid playlist-formats) (interpreted in get_pls).
 not on github	0.9.3	StationList: leading '|' in summary for CreateTrackObject fixed. 
