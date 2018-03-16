@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.0.4'		
-VDATE = '31.01.2018'
+VERSION =  '1.0.5'		
+VDATE = '16.03.2018'
 
 # 
 #	
@@ -72,14 +72,15 @@ ICON_UPDATER_NEW 		= 'plugin-update-new.png'
 ART    		= 'art-default.jpg'
 ICON   		= 'icon-default.jpg'
 NAME		= 'TuneIn2017'
-MENU_ICON 	=  	{'menu-lokale.png', 'menu_kuerzlich.png', 'menu-trend.png', 'menu-musik.png', 
-					'menu-sport.png', 'menu-news.png', 'menu-talk.png', 'menu-audiobook.png', 'menu-pod.png', 
+MENU_ICON 	=  	{'menu-lokale.png', 'menu-musik.png', 'menu-sport.png', 'menu-news.png',
+					 'menu-talk.png', 'menu-audiobook.png', 'menu-pod.png', 
 				}
 
 ROOT_URL 	= 'http://opml.radiotime.com/Browse.ashx?formats=%s'
 USER_URL 	= 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
 NEWS_URL	= 'http://opml.radiotime.com/Browse.ashx?id=c57922&formats=%s'
 TREND_URL	= 'http://tunein.com/radio/trending/'
+RECENTS_URL	= 'https://api.tunein.com/categories/recents?formats=%s&serial=%s&partnerId=RadioTime&version=2.22'
 
 PREFIX 		= '/music/tunein2017'
 
@@ -245,8 +246,13 @@ def Main():
 	oc.add(DirectoryObject(key = Callback(Rubriken, url=NEWS_URL % formats, title='NEWS', image=R('menu-news.png')),	
 		title = 'NEWS', thumb = R('menu-news.png')))
 													# "im Trend" anhängen
-	oc.add(DirectoryObject(key = Callback(RubrikTrend, url=TREND_URL, title='TREND', image=R('menu-trend.png')),	
-		title = 'TREND', thumb = R('menu-trend.png'))) 
+	title=L('Im Trend')
+	oc.add(DirectoryObject(key = Callback(RubrikNoOPML, url=TREND_URL, title=title, image=R('menu-trend.png')),	
+		title = title, thumb = R('menu-trend.png'))) 
+													# "Kürzlich gehört" anhängen
+	title=L('Kuerzlich gehoert')
+	oc.add(DirectoryObject(key = Callback(RubrikNoOPML, url=RECENTS_URL, title=title, image=R('menu_kuerzlich.png')),	
+		title = title, thumb = R('menu-kuerzlich.png'))) 
 
 #-----------------------------	
 	Log(Prefs['UseRecording'])
@@ -548,52 +554,80 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	return oc					
 	
 #-----------------------------
-# Rubrik Trend - Sonderbehandlung, nicht via opml-Request erreichbar
+# Sonderbehandlung: Rubriken aufgerufen via Browser-Url, nicht via opml-Request (Trend, Recents).
 #	die regionale Zuordnung steuern wir über die Header Accept-Language und CONSENT (Header-
 #		Auswertung Chrome).
 # 	Die Auswertung erfolgt mittels Stringfunktionen, da die Ausgabe weder im xml- noch im json-Format
 #		erzwungen werden kann.
-@route(PREFIX + '/RubrikTrend')		
-def RubrikTrend(url, title, image):
-	Log('RubrikTrend: ' + url)
+#	Bei Recents wird statt des opm-Calls ein api-Call verwendet. Der Output unterscheidet sich in den
+#		Anfangsbuchstaben der Parameter - s. uppercase / lowercase.
+@route(PREFIX + '/RubrikNoOPML')		
+def RubrikNoOPML(url, title, image):
+	Log('RubrikNoOPML:')
 	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)
-	
+	oc = home(oc)
+
+	# RECENTS_URL nicht als opml-Call verfügbar. Datensätze jedoch - fast - identisch (json-Format)
+	if 'categories/recents' in url:
+		formats = Dict['formats']; serial = Dict['serial']
+		# Log(formats); Log(serial);
+		url = url % (formats, serial)
+		
+	Log('url: ' + url)
+	req = urllib2.Request(url)							
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
-	req = urllib2.Request(url)						# xml-Übersicht Rubriken
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
-	req.add_header('CONSENT', loc_browser)			# Browser: 'CONSENT', 'YES+DE.de+V9')
+	req.add_header('CONSENT', loc_browser)			# Browser: 'CONSENT', 'YES+DE.de+V9') (für Recents nicht erf.)	
+	
 	gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
 	ret = urllib2.urlopen(req, context=gcontext)
 	page = ret.read()
-	# headers = ret.headers.dict					# bei Bedarf
+	Log(len(page))
+	# Log(page[:600])								# bei Bedarf
+	# headers = ret.headers.dict
 	# Log(headers)
 
-	page=stringextract('"containerItems":', '"player":', page)	# json-artiger Bereich
-	stations=blockextract('type":"Station"', page)
-	Log('Stationen: ' + str(len(stations)))
+	if 'categories/recents' in url:									# json-artiger Bereich ab Anfang,
+		page = page													# kein Segment erforderlich
+		# Anfangsbuchstaben groß
+		capType='T';capTitel='T';capText='T';capImage='I';capSub='S';capID='I';capFollow='F'; # uppercase
+	else:
+		page=stringextract('"containerItems":', '"player":', page)	# json-artigen Bereich ausschneiden
+		# Anfangsbuchstaben klein
+		capType='t';capTitel='t';capText='t';capImage='i';capSub='s';capID='i';capFollow='f'; # lowercase
 	
+	stations=blockextract('%sype":"Station"' %capType, page)		
+	Log('Stationen: ' + str(len(stations)))
+	if len(stations) == 0:
+		error_txt = stringextract('"%sitle":"' % capTitel, '"', page)
+		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+		
 	for station in stations:
-		text=stringextract('"title":"', '"', station)		# Sendername
-		typ='Station'					# immer Station		
-		image=stringextract('"image":"', '"', station)		# Javascript Unicode escape \u002F
-		image=image.replace('\u002F', '/')
-		key='?'							# fehlt - stringextract('', '"', station)
-		bitrate='?'						# fehlt, ? für PHT
-		subtext=stringextract('"subtitle":"', '"', station)
-		subtext=subtext.decode(encoding="utf-8")
-		preset_id =stringextract('"id":"', '"', station)	# dto. targetItemId, scope, guideId
+		text	= stringextract('"%sitle":"'  % capTitel, '"', station)		# Sendername
+		typ		= 'Station'					# immer Station		
+		image	= stringextract('"%smage":"' % capImage, '"', station)		# Javascript Unicode escape \u002F
+		image	= image.replace('\u002F', '/')
+		key		= '?'						# fehlt - stringextract('', '"', station)
+		bitrate	= '?'						# fehlt, ? für PHT
+		subtext		= stringextract('"%subtitle":"' % capSub, '"', station)
+		FollowText	= stringextract('"%sollowText":"' % capFollow, '"', station)
+		preset_id 	= stringextract('"%sd":"' % capID, '"', station)	# dto. targetItemId, scope, guideId
 		local_url="http://opml.radiotime.com/Tune.ashx?id=%s&formats=%s"	% (preset_id, Dict['formats'])
+		
 		# Log("%s | %s | %s | %s"	% (typ,text,subtext,preset_id))	# bei Bedarf
 		# Log(local_url)
+		text		= text.decode(encoding="utf-8")
+		subtext		= subtext.decode(encoding="utf-8")
+		FollowText	= FollowText.decode(encoding="utf-8")
 		oc.add(DirectoryObject(
 			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
 			preset_id=preset_id),
-			title=text, summary=subtext, tagline=bitrate, thumb=image 	
+			title=text, summary=subtext, tagline=FollowText, thumb=image 	
 		)) 
 
 	return oc
 #-----------------------------
-# Auswertung der Streamlinks:
+# Auswertung der Streamlinks (Aufrufe von RubrikNoOPML starten mit Ziffer 4):
 #	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
 #	2. Test Inhalt von Tune.ashx auf Playlist-Datei (.pls) -
 #		2.1. Playlist (.pls oder/und .m3u) laden, bei Problemen mittels urllib2 + Zertifikat
@@ -650,8 +684,8 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 			Log(error_txt)
 			return ObjectContainer(header=L('Fehler'), message=error_txt)		
 		Log('Tune.ashx_content: ' + cont)
-	else:										# ev. CustomUrl - key="presetUrls"> - direkter Link zur Streamquelle
-		cont = url
+	else:										# ev. CustomUrl - key="presetUrls"> (direkter Link zur Streamquelle),
+		cont = url								# sowie url's aus RubrikNoOPML- 
 		Log('custom_content: ' + cont)
 		
 	# .pls-Auswertung ziehen wir vor, auch wenn (vereinzelt) .m3u-Links enthalten sein können

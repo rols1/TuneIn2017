@@ -2,6 +2,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+16.03.2018	1.0.5	Added: menu Recents - fuction RubrikNoOPML (combinded for Trend + Recents).
+			Adjustments for Recents: api.tunein.com-url instead of tunein.com, output 
+			without page segment, Uppercase for the first char of parameters. 
+			Home-menu button added in RubrikNoOPML.
 31.01.2018	1.0.4	Added: menu Trend - function RubrikTrend.
 not on github	1.0.3	SingleMRS: fix empty variable "cont", compose Servermessage3.
 			getMenuIcon: fix wrong icon for Podcast.

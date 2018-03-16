@@ -72,5 +72,7 @@
 	"fehlerhafte Datei": "corrupted file",
 	"Eintrag fehlt fuer Url oder Name": "Entry missing for url or name",
 	"Custom Url muss mit http beginnen": "Custom Url must start with http",
-	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maximum number of streams per station (can prevent timeouts)"
+	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maximum number of streams per station (can prevent timeouts)",
+	"Im Trend": "Trending",
+	"Kuerzlich gehoert": "Recents"
 }

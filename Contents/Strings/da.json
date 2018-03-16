@@ -69,6 +69,8 @@
 	"fehlerhafte Datei": "defekt fil",
 	"Eintrag fehlt fuer Url oder Name": "element mangler enten url eller navn",
 	"Custom Url muss mit http beginnen": "bruger defineret url skal starte med http",
-	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maksimum antal streams pr. station (kan forebygge timeouts)"
+	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maksimum antal streams pr. station (kan forebygge timeouts)",
+	"Im Trend": "Trending",
+	"Kuerzlich gehoert": "Recents"
 }
 
