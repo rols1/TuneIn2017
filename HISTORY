@@ -5,7 +5,8 @@ CHANGE HISTORY 	TuneIn2017
 18.03.2018	1.0.6	PlayAudio: audience-opml-Call added (add station-id to Recents).
 			PlayAudio: none-parameter removed (not needed with **kwargs).			
 			PlayAudio, CreateTrackObject and calling functions: station-id sid added (needed
-			for audience-opml-Call.	
+			for audience-opml-Call. Excluded: Custom-Url's and MyRadioStations (could contains 
+			non-Tune.ashx-Url's).
 16.03.2018	1.0.5	Added: menu Recents - fuction RubrikNoOPML (combinded for Trend + Recents).
 			Adjustments for Recents: api.tunein.com-url instead of tunein.com, output 
 			without page segment, Uppercase for the first char of parameters. 

@@ -1077,11 +1077,12 @@ def PlayAudio(url, sid, **kwargs):
 			# Check auf HTML-/Textseite - vermutl. falsche Custom Url:
 			if 'text/html' in str(headers):
 				Log('Error: Textpage ' + url)
-				return Redirect(R('textpage.mp3'))			# mp3: not a stream - this is a text page
+				return Redirect(R('textpage.mp3'))				# mp3: not a stream - this is a text page
 				
-			if len(sid) > 1:								# '0' = MyRadioStatios + notcompatible stations
+			if sid.startswith('s') and len(sid) > 1:			# '0' = MyRadioStatios + notcompatible stations
 				# audience-opml-Call für Aufnahme in Recents:
 				#	aus Chrome-Analyse - siehe Chrome_1Live_Curl.txt
+				#	Custom-Url ausschließen, Bsp. sid: "u21"
 				audience_url='https://opml.radiotime.com/Tune.ashx?audience=Tunein2017&id=%s&render=json&formats=%s&type=station&serial=%s&partnerId=RadioTime&version=2.22'
 				audience_url = audience_url % (sid, Dict['formats'], Dict['serial'])
 				Log('audience_url: ' + audience_url)
