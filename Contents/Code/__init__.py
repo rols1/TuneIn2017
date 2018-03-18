@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.0.5'		
-VDATE = '16.03.2018'
+VERSION =  '1.0.6'		
+VDATE = '18.03.2018'
 
 # 
 #	
@@ -664,7 +664,7 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 	if 'No compatible stream' in summ or 'Does not stream' in summ: 	# Kennzeichnung + mp3 von TuneIn 
 		if 'Tune.ashx?' in url == False:								# "trozdem"-Streams überspringen - s. Rubriken
 			url = R('notcompatible.enUS.mp3') # Bsp. 106.7 | Z106.7 Jackson
-			oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image))
+			oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image, sid='0'))
 			return oc
 		
 	if 'Tune.ashx?' in url:						# normaler TuneIn-Link zur Playlist o.ä.
@@ -729,7 +729,7 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 		title = title_org + ' | Stream %s | %s'  % (str(i), fmt)
 		i=i+1
 		Log(url)
-		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
+		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image, sid=preset_id))
 		
 	if Prefs['UseRecording'] == True:			# Aufnahme- und Stop-Button
 		title = L("Aufnahme") + ' ' + L("starten")		
@@ -998,8 +998,9 @@ def get_details(line):		# xml mittels Stringfunktionen extrahieren
 #-----------------------------
 # Codecs, Protocols ... s. Framework/api/constkit.py
 #	DirectPlayProfiles s. Archiv/TuneIn2017/00_Hinweis.txt
+#	sid = Station-ID (für opml-Call in PlayAudio)
 @route(PREFIX + '/CreateTrackObject')
-def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, location=None, 
+def CreateTrackObject(url, title, summary, fmt, thumb, sid, include_container=False, location=None, 
 		includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
 	Log('CreateTrackObject: ' + url); Log(include_container)
 	Log(title);Log(summary);Log('fmt: ' + fmt);Log(thumb);
@@ -1029,7 +1030,7 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 	Log(rating_key)
 
 	track_object = TrackObject(
-		key = Callback(CreateTrackObject, url=url, title=title, summary=summary, fmt=fmt, thumb=thumb,  
+		key = Callback(CreateTrackObject, url=url, title=title, summary=summary, fmt=fmt, thumb=thumb, sid=sid,  
 				include_container=True, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None),
 		rating_key = rating_key,	
 		title = title,
@@ -1039,7 +1040,7 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 		items = [
 			MediaObject(
 				parts = [
-					PartObject(key=Callback(PlayAudio, url=url, ext=fmt)) # Bsp. runtime- Aufruf: PlayAudio.mp3 
+					PartObject(key=Callback(PlayAudio, url=url,ext=fmt,sid=sid)) # Bsp. runtime- Aufruf: PlayAudio.mp3 
 				],
 				container = container,
 				audio_codec = audio_codec,
@@ -1057,8 +1058,8 @@ def CreateTrackObject(url, title, summary, fmt, thumb, include_container=False, 
 #-----------------------------
 @route(PREFIX + '/PlayAudio') 
 #	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktioniert mit PMS nicht
-def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None, hasMDE=None, **kwargs):
-	Log('PlayAudio')
+def PlayAudio(url, sid, **kwargs):
+	Log('PlayAudio'); Log(sid)
 
 	if url is None or url == '':			# sollte hier nicht vorkommen
 		Log('Url fehlt!')
@@ -1077,6 +1078,18 @@ def PlayAudio(url, location=None, includeBandwidths=None, autoAdjustQuality=None
 			if 'text/html' in str(headers):
 				Log('Error: Textpage ' + url)
 				return Redirect(R('textpage.mp3'))			# mp3: not a stream - this is a text page
+				
+			if len(sid) > 1:								# '0' = MyRadioStatios + notcompatible stations
+				# audience-opml-Call für Aufnahme in Recents:
+				#	aus Chrome-Analyse - siehe Chrome_1Live_Curl.txt
+				audience_url='https://opml.radiotime.com/Tune.ashx?audience=Tunein2017&id=%s&render=json&formats=%s&type=station&serial=%s&partnerId=RadioTime&version=2.22'
+				audience_url = audience_url % (sid, Dict['formats'], Dict['serial'])
+				Log('audience_url: ' + audience_url)
+				req = urllib2.Request(audience_url)			
+				gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
+				ret = urllib2.urlopen(req, context=gcontext)
+				cont = ret.read()
+				Log(cont[:30])									# falls OK: "status": "200"
 			
 		except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
 			error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
@@ -1522,6 +1535,7 @@ def ListMRS(path):
 	return oc
 #----------------------------------------------------------------
 #	Einzelstation zu ListMRS - Meta-Auswertung hier - könnte in ListMRS zum Timeout führen
+#	sid='0' für audience-opml-Call in PlayAudio: Einzelstationen ev. tunein-inkompatibel
 @route(PREFIX + '/SingleMRS')						
 def SingleMRS(name, url, max_streams, image):										
 	Log('SingleMRS'); Log(url) 
@@ -1595,7 +1609,7 @@ def SingleMRS(name, url, max_streams, image):
 			fmt='ogg'
 		title = name + ' | Stream %s | %s'  % (str(i), fmt)
 		i=i+1
-		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image))
+		oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt=fmt, thumb=image, sid='0'))
 	return oc
 
 ####################################################################################################
