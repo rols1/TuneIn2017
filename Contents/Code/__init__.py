@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.0.6'		
-VDATE = '18.03.2018'
+VERSION =  '1.0.7'		
+VDATE = '19.03.2018'
 
 # 
 #	
@@ -463,9 +463,16 @@ def Rubriken(url, title, image, offset=0):
 						key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate,
 						preset_id=preset_id),
 						title = new_text, summary=new_subtext,  tagline=tagline, thumb = image 
-					))  				
-					
-				# Log(local_url)		# bei Bedarf
+					))
+					 
+				# get_details liefert leere preset_id's, falls url kein lifestream, Bsp. p54878
+				if 	preset_id == '':								# preset_id aus url extrahieren (wird von
+					try:											# tunein aber nicht für Recents akzeptiert)
+						preset_id = re.search('sid=(.*)&', local_url).group(1)
+					except:
+						preset_id = ''
+				# Log(preset_id)			# bei Bedarf					
+				# Log(local_url)		
 				oc.add(DirectoryObject(
 					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
 					preset_id=preset_id),
@@ -488,9 +495,10 @@ def Rubriken(url, title, image, offset=0):
 						title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
 					)) 
 					break					# Schleife beenden
-		Log('Log5')
+					
 		if 'c=presets' in url_org:			# Ordner-Funktionen in Favoriten anhängen
 			if Prefs['UseFavourites']:
+				Log('Folder + Custom Menues')
 				title = L('Neuer Ordner fuer Favoriten') 
 				foldername = str(Prefs['folder'])
 				summ = L('Name des neuen Ordners') + ': ' + foldername
@@ -1059,7 +1067,7 @@ def CreateTrackObject(url, title, summary, fmt, thumb, sid, include_container=Fa
 @route(PREFIX + '/PlayAudio') 
 #	Google-Translation-Url (lokalisiert) im Exception-Fall getestet - funktioniert mit PMS nicht
 def PlayAudio(url, sid, **kwargs):
-	Log('PlayAudio'); Log(sid)
+	Log('PlayAudio'); Log(url); Log(sid)
 
 	if url is None or url == '':			# sollte hier nicht vorkommen
 		Log('Url fehlt!')
@@ -1079,8 +1087,10 @@ def PlayAudio(url, sid, **kwargs):
 				Log('Error: Textpage ' + url)
 				return Redirect(R('textpage.mp3'))				# mp3: not a stream - this is a text page
 				
+			if sid == None:
+				sid = '0'
 			if sid.startswith('s') and len(sid) > 1:			# '0' = MyRadioStatios + notcompatible stations
-				# audience-opml-Call für Aufnahme in Recents:
+				# audience-opml-Call für Aufnahme in Recents:	# Bsp. sid: s202726 - p799140 nicht! (kein Lifestream)
 				#	aus Chrome-Analyse - siehe Chrome_1Live_Curl.txt
 				#	Custom-Url ausschließen, Bsp. sid: "u21"
 				audience_url='https://opml.radiotime.com/Tune.ashx?audience=Tunein2017&id=%s&render=json&formats=%s&type=station&serial=%s&partnerId=RadioTime&version=2.22'
