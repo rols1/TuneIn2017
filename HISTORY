@@ -2,8 +2,9 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+20.03.2018	1.0.8	Update language-files: Italian, Polish, French
 19.03.2018	1.0.7	Update language-files: Italian (Alessio79).
-			Rubriken: extract preset_id, if comes empty from get_details.
+			Rubriken: extract preset_id from url, if comes empty from get_details.
 18.03.2018	1.0.6	PlayAudio: audience-opml-Call added (add station-id to Recents).
 			PlayAudio: none-parameter removed (not needed with **kwargs).			
 			PlayAudio, CreateTrackObject and calling functions: station-id sid added (needed
