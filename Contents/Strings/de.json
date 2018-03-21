@@ -74,7 +74,10 @@
 	"Custom Url muss mit http beginnen": "Custom Url muss mit http beginnen",
 	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maximale Anzahl Streams pro Station (kann Timeouts verhindern)",
 	"Im Trend": "Im Trend",
-	"Kuerzlich gehoert": "Kuerzlich gehoert"
+	"Kuerzlich gehoert": "Kuerzlich gehoert",
+	"Plugin Update": "Plugin Update",
+	"Plugin Version:": "Plugin Version",
+	"Plugin aktuell": "Plugin ist aktuell"
 }
 
 

@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.0.8'		
-VDATE = '20.03.2018'
+VERSION =  '1.0.9'		
+VDATE = '21.03.2018'
 
 # 
 #	
@@ -102,7 +102,7 @@ def Start():
 	#	GET /music/tunein2017?includeConcerts=1&includeExtras=1&includeOnDeck=1&includePopularLeaves=1&includeChapters=1&checkFiles=1
 	
 	ObjectContainer.title1 = NAME
-	HTTP.CacheTime = 300			
+	HTTP.CacheTime = 300		# = 5 min
 	ObjectContainer.art = R(ART)
 	DirectoryObject.art = R(ART)
 	DirectoryObject.thumb = R(ICON)
@@ -259,7 +259,7 @@ def Main():
 	Log(Dict['PID'])
 	if Prefs['UseRecording'] == True:			# Recording-Option: Aufnahme-Menu bei aktiven Aufnahmen einbinden
 		if len(Dict['PID']) > 0:						
-			title = L("laufende Aufnahmen")
+			title = L("Laufende Aufnahmen")
 			oc.add(DirectoryObject(key=Callback(RecordsList,title=title,), title=title,thumb=R(MENU_RECORDS)))			       
 #-----------------------------	
 	oc = SearchUpdate(title=NAME, start='true', oc=oc)	# Updater-Modul einbinden:
@@ -1470,7 +1470,7 @@ def FolderMenu(title, ID, preset_id, checkFiles=None, **kwargs):	#  unexpected k
 					pass
 				
 				if ID == 'removeFolder':	# -> Ordner entfernen, 
-					title = foldername + ': ' + L('Ordner entfernen') + ' | ' + L('ohne Rueckfrage!')
+					title = foldername + ': ' + L('Ordner entfernen') + ' | ' + L('ohne Rueckfrage')
 					summ = L('Anzahl der Eintraege') + ': ' + str(items_cnt)
 					thumb = R(ICON_FOLDER_REMOVE)
 					if foldername == 'General':
@@ -1823,7 +1823,7 @@ def SearchUpdate(title, start, oc=None):
 				return oc
 		
 		Log('InfoUpdate = False, no Check')				# Menü Plugin-Update zeigen														
-		title = 'Plugin-Update | Version: ' + VERSION + ' - ' + VDATE 	 
+		title = L('Plugin Update') + " | " + L('Plugin Version:') + VERSION + ' - ' + VDATE 	 
 		summary=L('Suche nach neuen Updates starten')
 		tagline=L('Bezugsquelle') + ': ' + REPO_URL			
 		oc.add(DirectoryObject(key=Callback(SearchUpdate, title='Plugin-Update', start='false'), 
@@ -1862,7 +1862,7 @@ def presentUpdate(oc,start):
 	if int_lv > int_lc:								# 2 Update-Button: "installieren" + "abbrechen"
 		available = 'true'
 		title = L('neues Update vorhanden') +  ' - ' + L('jetzt installieren')
-		summary = 'Plugin Version: ' + VERSION + ', Github Version: ' + latest_version
+		summary = L('Plugin Version:') + " " + VERSION + ', Github Version: ' + latest_version
 
 		oc.add(DirectoryObject(key=Callback(updater.update, url=url , ver=latest_version), 
 			title=title, summary=summary, tagline=tag, thumb=R(ICON_UPDATER_NEW)))
@@ -1874,7 +1874,7 @@ def presentUpdate(oc,start):
 		available = 'false'
 		if start == 'false':						# beim Start unterdrücken
 			oc.add(DirectoryObject(key = Callback(Main), 	
-				title = 'Plugin up to date | Home',
+				title = L('Plugin aktuell') + " | Home",
 				summary = 'Plugin Version ' + VERSION + ' ' + L('ist die neueste Version'),
 				tagline = tag, thumb = R(ICON_OK)))			
 

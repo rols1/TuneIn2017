@@ -71,6 +71,9 @@
 	"Custom Url muss mit http beginnen": "bruger defineret url skal starte med http",
 	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maksimum antal streams pr. station (kan forebygge timeouts)",
 	"Im Trend": "Trending",
-	"Kuerzlich gehoert": "Recents"
+	"Kuerzlich gehoert": "Recents",
+	"Plugin Update": "Plugin Update",
+	"Plugin Version:": "Plugin Version",
+	"Plugin aktuell": "Plugin up to date"
 }
 

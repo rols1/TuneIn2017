@@ -2,7 +2,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-20.03.2018	1.0.8	Update language-files: Italian, Polish, French
+21.03.2018	1.0.9	Update language-files: Italian, lang-adjustments in plugin, corrections in script convert.py
+			(dev.-env.).
+			Change menu title Plugin-Update to Lang-string.
+20.03.2018	1.0.8	Update language-files: Italian, Polish, French.
 19.03.2018	1.0.7	Update language-files: Italian (Alessio79).
 			Rubriken: extract preset_id from url, if comes empty from get_details.
 18.03.2018	1.0.6	PlayAudio: audience-opml-Call added (add station-id to Recents).

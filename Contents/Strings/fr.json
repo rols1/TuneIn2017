@@ -74,6 +74,9 @@
 	"Custom Url muss mit http beginnen": "Custom Url doit commencer par http",
 	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "nombre maximum de flux par station (peut éviter les délais d'attente)",
 	"Im Trend": "Tendance",
-	"Kuerzlich gehoert": "Récents"
+	"Kuerzlich gehoert": "Récents",
+	"Plugin Update": "Plugin Update",
+	"Plugin Version:": "Plugin Version",
+	"Plugin aktuell": "Plugin up to date"
 }
 
