@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.1.0'		
-VDATE = '22.03.2018'
+VERSION =  '1.1.2'		
+VDATE = '06.04.2018'
 
 # 
 #	
@@ -63,6 +63,8 @@ ICON_FAV_REMOVE			= 'fav_remove.png'
 ICON_FAV_MOVE			= 'fav_move.png'
 ICON_FOLDER_ADD			= 'folder_add.png'
 ICON_FOLDER_REMOVE		= 'folder_remove.png'
+ICON_MYLOCATION			= 'mylocation.png'
+ICON_MYLOCATION_REMOVE	= 'mylocation-remove.png'
 						
 
 ICON_MAIN_UPDATER 		= 'plugin-update.png'		
@@ -79,7 +81,7 @@ MENU_ICON 	=  	{'menu-lokale.png', 'menu-musik.png', 'menu-sport.png', 'menu-new
 ROOT_URL 	= 'http://opml.radiotime.com/Browse.ashx?formats=%s'
 USER_URL 	= 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
 NEWS_URL	= 'http://opml.radiotime.com/Browse.ashx?id=c57922&formats=%s'
-TREND_URL	= 'http://tunein.com/radio/trending/'
+TREND_URL	= 'https://tunein.com/radio/trending/'
 RECENTS_URL	= 'https://api.tunein.com/categories/recents?formats=%s&serial=%s&partnerId=RadioTime&version=2.22'
 
 PREFIX 		= '/music/tunein2017'
@@ -221,7 +223,7 @@ def Main():
 	Log(Prefs['PlusAAC'])								
 	if  Prefs['PlusAAC'] == False:					# Performance, aac ist bei manchen Sendern nicht erreichbar
 		formats = 'mp3'
-	Dict['formats'] = formats						# Verwendung z.B. in RubrikTrend
+	Dict['formats'] = formats						# Verwendung z.B. in Rubrik Trend
 	
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
@@ -349,12 +351,19 @@ def Search(query=None):
 	return oc
 #-----------------------------
 @route(PREFIX + '/Rubriken')
-def Rubriken(url, title, image, offset=0):
+def Rubriken(url, title, image, offset=0, myLocationRemove=None):
 	Log('Rubriken: ' + url)
 	Log(offset)
 	offset = int(offset)
 	url_org 	= url	# sichern
 	title_org 	= title	# sichern
+	
+	if Prefs['UseMyLocation']:	
+		if Dict['myLocation']:							# neuer Durchlauf mit manuell gesetzter Region
+			if 'Browse.ashx?c=local' in url:			# Menü Lokales Radio
+				Log(Dict['myLocation'])
+				oc = Rubriken(url=Dict['myLocation'], title=title, image=image, offset=offset, myLocationRemove=True)
+				return oc
 
 	max_count = 0									# Default: keine Begrenzung
 	if Prefs['maxPageContent']:
@@ -362,9 +371,11 @@ def Rubriken(url, title, image, offset=0):
 
 	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
-	req = urllib2.Request(url)					# xml-Übersicht Rubriken
+	req = urllib2.Request(url)						# xml-Übersicht Rubriken
 	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
 	ret = urllib2.urlopen(req)
+	page = ret.read()
+	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 		
 	minBitrate = Prefs['minBitrate']
 	if minBitrate == '' or minBitrate == None:
@@ -373,8 +384,6 @@ def Rubriken(url, title, image, offset=0):
 		minBitrate = int(minBitrate.split()[0])
 	Log('minBitrate: ' + str(minBitrate))
 		
-	page = ret.read()
-	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 		
 	status  = stringextract('<status>', '</status>', page)
 	if status == '400':								# Test auf Status 400 - ev. falscher Username
@@ -399,148 +408,164 @@ def Rubriken(url, title, image, offset=0):
 	
 	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
-
-	outline_text = stringextract('<outline text', '>', page)# Bsp. <outline text="Stations (2)" key="stations">
-	Log('outline_text: ' + outline_text)			
-	outlines = blockextract('<outline text', page)
-	Log(len(outlines))
 	
-	if len(outlines) == 0:								# Normalausgabe ohne Gliederung, Bsp. alle type="link" 
-		outlines = blockextract('<body>', page)
-		Log('switch_no_blocks')
-	Log(len(outlines))		
+	if '<outline text' in page:							# Bsp. <outline text="Stations (2)" key="stations">
+		outlines = blockextract('<outline text', page)
+		Log('Ausgabe mit Gliederungen: ' + str(len(outlines)))
+	else:												# Normalausgabe ohne Gliederung, Bsp. alle type="link" 
+		Log('Normalausgabe ohne Gliederung')
+		outlines = ''
 		
-	for outline in outlines:
-		key = stringextract('key="', '"', outline)		# Bsp. key="stations"
-		# Log(outline); 
-		Log('outline_key: ' + key)	
-		if key == 'presetUrls':							# CustomUrl's getrennt + komplett behandeln
-			oc = get_presetUrls(oc, outline)
-			continue
-			
-		# if key == 'stations'							# z.Z. nicht nötig, Rest typ=link od. typ=audio
-		rubriken = blockextract('<outline type', outline)	# restliche outlines
-		page_cnt = len(rubriken)
-		
-		if 	max_count:									# '' = 'Mehr..'-Option ausgeschaltet?
-			delnr = min(page_cnt, offset)
-			del rubriken[:delnr]
-			Log(delnr)				
-		Log(page_cnt); Log(len(rubriken))
-		
-		for rubrik in rubriken:			
-			typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
-			# Log(' '.join([typ,local_url,text,image,key,subtext,bitrate,preset_id])) # bei Bedarf
-
-			text = text.decode(encoding="utf-8", errors="ignore")
-			subtext = subtext.decode(encoding="utf-8", errors="ignore")
-						
-			if typ == 'link':										# bitrate hier n.b.
-				oc.add(DirectoryObject(
-					key = Callback(Rubriken, url=local_url, title=text, image=image, offset=0),
-					title = text, summary=subtext, tagline=L('Mehr...'), thumb = image 
-				)) 
-								 
-			if typ == 'audio':									
-				if bitrate== '':
-					bitrate = 0
-				if int(bitrate) < minBitrate:						# Mindest-Bitrate gewählt?
-					continue
-
-				tagline = ''
-				if bitrate:											# möglich: keine Angabe (stream_type="download")
-					tagline = 'Station | Bitrate: %s KB' % bitrate
+	for i in range(len(outlines)):
+		outline = outlines[i]				
+		if 'key="presetUrls">' in page:						# CustomUrl's getrennt + komplett behandeln
+			outline = stringextract('key="presetUrls">', '</outline>', page)
+			Log('key=presetUrls')	
+			oc = get_presetUrls(oc, outline)				# wg. outline type="link"  getrennt holen
+			del outlines[i]									# Element enfernen
+			break								
+	
+	if Prefs['UseMyLocation']:	
+		if 'Browse.ashx?id=r' in url:			# By Location call: show myLocation-button to set region manually
+			if 'Browse.ashx?id=r0&' not in url: # Übersicht verwerfen: Africa, Asia ...
+				summ = L('neu setzen im Menue') + ' ' + L('Orte')
+				if  myLocationRemove:			# True im Menü Lokales Radio
+					thumb=R(ICON_MYLOCATION_REMOVE) 
+					info_title = L('entferne Lokales Radio') + ': >%s<' % oc_title2
 				else:
-					bitrate = '?'									# PHT verträgt '' nicht
-									
-				# Sonderfall: Station wird als nicht unterstützt ausgegeben, aber im Web/App gespielt. Hier
-				#	versuchen wir den Zugriff auf die Playlist via preset_id (Analyse Chrome-HAR).
-				if key == "unavailable":							# Bsp. Buddha Hits mit url -> notcompatible.enUS.mp3
-					new_text 	= text + ' | ' + L("neuer Versuch")
-					new_subtext = subtext + ' | ' + L("neuer Versuch")
-					new_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=mp3,aac' % preset_id
-					oc.add(DirectoryObject(
-						key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate,
-						preset_id=preset_id),
-						title = new_text, summary=new_subtext,  tagline=tagline, thumb = image 
-					))
-					 
-				# get_details liefert leere preset_id's, falls url kein lifestream, Bsp. p54878
-				if 	preset_id == '':								# preset_id aus url extrahieren (wird von
-					try:											# tunein aber nicht für Recents akzeptiert)
-						preset_id = re.search('sid=(.*)&', local_url).group(1)
-					except:
-						preset_id = ''
-				# Log(preset_id)			# bei Bedarf					
-				# Log(local_url)		
+					thumb=R(ICON_MYLOCATION) 
+					info_title = L('setze Lokales Radio auf') + ': >%s<' % oc_title2
 				oc.add(DirectoryObject(
-					key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
+					key = Callback(SetLocation, url=url, title=info_title, region=oc_title2, 
+					myLocationRemove=myLocationRemove), title=info_title, summary=summ, thumb=thumb 	
+				)) 	
+												
+	rubriken = blockextract('<outline type', page)	# restliche outlines
+	page_cnt = len(rubriken)
+	Log('Rubriken: ' + str(page_cnt))
+	
+	if 	max_count:									# '' = 'Mehr..'-Option ausgeschaltet?
+		page_cnt = page_cnt 
+		delnr = min(page_cnt, offset)
+		del rubriken[:delnr]
+		Log(delnr)				
+	Log(page_cnt); Log(len(rubriken))
+	
+	for rubrik in rubriken:			
+		typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
+		# Log(' '.join([typ,local_url,text,image,key,subtext,bitrate,preset_id])) # bei Bedarf
+
+		text = text.decode(encoding="utf-8", errors="ignore")
+		subtext = subtext.decode(encoding="utf-8", errors="ignore")
+					
+		if typ == 'link':										# bitrate hier n.b.
+			oc.add(DirectoryObject(
+				key = Callback(Rubriken, url=local_url, title=text, image=image, offset=0,
+				myLocationRemove=myLocationRemove),
+				title = text, summary=subtext, tagline=L('Mehr...'), thumb = image 
+			)) 
+							 
+		if typ == 'audio':									
+			if bitrate== '':
+				bitrate = 0
+			if int(bitrate) < minBitrate:						# Mindest-Bitrate gewählt?
+				continue
+
+			tagline = ''
+			if bitrate:											# möglich: keine Angabe (stream_type="download")
+				tagline = 'Station | Bitrate: %s KB' % bitrate
+			else:
+				bitrate = '?'									# PHT verträgt '' nicht
+								
+			# Sonderfall: Station wird als nicht unterstützt ausgegeben, aber im Web/App gespielt. Hier
+			#	versuchen wir den Zugriff auf die Playlist via preset_id (Analyse Chrome-HAR).
+			if key == "unavailable":							# Bsp. Buddha Hits mit url -> notcompatible.enUS.mp3
+				new_text 	= text + ' | ' + L("neuer Versuch")
+				new_subtext = subtext + ' | ' + L("neuer Versuch")
+				new_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=mp3,aac' % preset_id
+				oc.add(DirectoryObject(
+					key = Callback(StationList, url=new_url, title=new_text, summ=new_subtext, image=image, typ=typ, bitrate=bitrate,
 					preset_id=preset_id),
-					title=text, summary=subtext, tagline=tagline, thumb=image 	
-				)) 
+					title = new_text, summary=new_subtext,  tagline=tagline, thumb = image 
+				))
 				 
-			if max_count:
-				# Mehr Seiten anzeigen:		
-				cnt = len(oc) + offset		# 
-				# Log('Mehr-Test'); Log(len(oc)); Log(cnt); Log(page_cnt)
-				if cnt > page_cnt:			# Gesamtzahl erreicht - Abbruch
-					offset=0
-					break					# Schleife beenden
-				elif len(oc) >= max_count:	# Mehr, wenn max_count erreicht
-					offset = offset + max_count-1
-					title = L('Mehr...') + oc_title2_org
-					summ_mehr = L('Mehr...') + '(max.: %s)' % page_cnt
-					oc.add(DirectoryObject(
-						key = Callback(Rubriken, url=url_org, title=title, image=image, offset=offset),
-						title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
-					)) 
-					break					# Schleife beenden
-					
-		if 'c=presets' in url_org:			# Ordner-Funktionen in Favoriten anhängen
-			if Prefs['UseFavourites']:
-				Log('Folder + Custom Menues')
-				title = L('Neuer Ordner fuer Favoriten') 
-				foldername = str(Prefs['folder'])
-				summ = L('Name des neuen Ordners') + ': ' + foldername
+			# get_details liefert leere preset_id's, falls url kein lifestream, Bsp. p54878
+			if 	preset_id == '':								# preset_id aus url extrahieren (wird von
+				try:											# tunein aber nicht für Recents akzeptiert)
+					preset_id = re.search('sid=(.*)&', local_url).group(1)
+				except:
+					preset_id = ''
+			# Log(preset_id)			# bei Bedarf					
+			# Log(local_url)		
+			oc.add(DirectoryObject(
+				key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
+				preset_id=preset_id),
+				title=text, summary=subtext, tagline=tagline, thumb=image 	
+			)) 
+			 
+		if max_count:
+			# Mehr Seiten anzeigen:		
+			cnt = len(oc) + offset		# 
+			# Log('Mehr-Test'); Log(len(oc)); Log(cnt); Log(page_cnt)
+			if cnt > page_cnt:			# Gesamtzahl erreicht - Abbruch
+				offset=0
+				break					# Schleife beenden
+			elif len(oc) >= max_count:	# Mehr, wenn max_count erreicht
+				offset = offset + max_count - 2		
+				title = L('Mehr...') + oc_title2_org
+				summ_mehr = L('Mehr...') + '(max.: %s)' % page_cnt
 				oc.add(DirectoryObject(
-					key = Callback(Folder, ID='addFolder', title=title, foldername=foldername, folderId='dummy'),
-					title = title, summary=summ, thumb=R(ICON_FOLDER_ADD) 
+					key = Callback(Rubriken, url=url_org, title=title, image=image, offset=offset,
+					myLocationRemove=myLocationRemove),
+					title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
 				)) 
+				break					# Schleife beenden
 				
-				sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='foldercnt')
-				Log('foldercnt: ' + foldercnt)
-				if foldercnt > '1':			# Löschbutton -> Liste - 1. Ordner General nicht löschen
-					title = L('Ordner entfernen') 
-					summ = L('Ordner zum Entfernen auswaehlen')
-					oc.add(DirectoryObject(
-						key = Callback(FolderMenu, title=title, ID='removeFolder', preset_id='dummy'), 
-						title = title, summary=summ, thumb=R(ICON_FOLDER_REMOVE) 
-					))
-					
-				# Button für Custom Url 
-				# Einstellungen:  Felder Custom Url/Name müssen ausgefüllt sein, Custom Url mit http starten
-				#	Custom Url wird hier nur hinzugefügt - Verschieben + Löschen erfolgt als Favorit in
-				#		StationList 
-				if Prefs['custom_url'] or Prefs['custom_name']: 		# Custom Url/Name - ausgefüllt 
-					custom_url 	= str(Prefs['custom_url']).strip()
-					custom_name = str(Prefs['custom_name']).strip()			# ungeprüft!
-					sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id=custom_url, ID='custom_url') # vorhanden
-					Log(sidExist)
-					if custom_url == '' or custom_name == '':
-						error_txt = L("Custom Url") + ': ' + L("Eintrag fehlt fuer Url oder Name")
-						error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-						return ObjectContainer(header=L('Fehler'), message=error_txt)		
-					
-					if custom_url.startswith('http') == False: 
-						error_txt = L('Custom Url muss mit http beginnen')
-						error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-						return ObjectContainer(header=L('Fehler'), message=error_txt)	
-							
-					if sidExist == False:									# schon vorhanden?
-						title = L('Custom Url') + ' ' + L('hinzufuegen')	# hinzufuegen immer in Ordner General	
-						summ = custom_name + ' | ' + custom_url
-						oc.add(DirectoryObject(key=Callback(Favourit, ID='addcustom', preset_id=custom_url, folderId=custom_name), 
-							title=title,summary=summ,thumb=R(MENU_CUSTOM_ADD)))
+	if 'c=presets' in url_org:			# Ordner-Funktionen in Favoriten anhängen
+		if Prefs['UseFavourites']:
+			Log('Folder + Custom Menues')
+			title = L('Neuer Ordner fuer Favoriten') 
+			foldername = str(Prefs['folder'])
+			summ = L('Name des neuen Ordners') + ': ' + foldername
+			oc.add(DirectoryObject(
+				key = Callback(Folder, ID='addFolder', title=title, foldername=foldername, folderId='dummy'),
+				title = title, summary=summ, thumb=R(ICON_FOLDER_ADD) 
+			)) 
+			
+			sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id, ID='foldercnt')
+			Log('foldercnt: ' + foldercnt)
+			if foldercnt > '1':			# Löschbutton -> Liste - 1. Ordner General nicht löschen
+				title = L('Ordner entfernen') 
+				summ = L('Ordner zum Entfernen auswaehlen')
+				oc.add(DirectoryObject(
+					key = Callback(FolderMenu, title=title, ID='removeFolder', preset_id='dummy'), 
+					title = title, summary=summ, thumb=R(ICON_FOLDER_REMOVE) 
+				))
+				
+			# Button für Custom Url 
+			# Einstellungen:  Felder Custom Url/Name müssen ausgefüllt sein, Custom Url mit http starten
+			#	Custom Url wird hier nur hinzugefügt - Verschieben + Löschen erfolgt als Favorit in
+			#		StationList 
+			if Prefs['custom_url'] or Prefs['custom_name']: 		# Custom Url/Name - ausgefüllt 
+				custom_url 	= str(Prefs['custom_url']).strip()
+				custom_name = str(Prefs['custom_name']).strip()			# ungeprüft!
+				sidExist,foldername,guide_id,foldercnt = SearchInFolders(preset_id=custom_url, ID='custom_url') # vorhanden
+				Log(sidExist)
+				if custom_url == '' or custom_name == '':
+					error_txt = L("Custom Url") + ': ' + L("Eintrag fehlt fuer Url oder Name")
+					error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+					return ObjectContainer(header=L('Fehler'), message=error_txt)		
+				
+				if custom_url.startswith('http') == False: 
+					error_txt = L('Custom Url muss mit http beginnen')
+					error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+					return ObjectContainer(header=L('Fehler'), message=error_txt)	
+						
+				if sidExist == False:									# schon vorhanden?
+					title = L('Custom Url') + ' ' + L('hinzufuegen')	# hinzufuegen immer in Ordner General	
+					summ = custom_name + ' | ' + custom_url
+					oc.add(DirectoryObject(key=Callback(Favourit, ID='addcustom', preset_id=custom_url, folderId=custom_name), 
+						title=title,summary=summ,thumb=R(MENU_CUSTOM_ADD)))
 
 	return oc
 	
@@ -562,8 +587,23 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	return oc					
 	
 #-----------------------------
+# SetLocation (Aufruf Rubriken): Region für Lokales Radiomanuell setzen/entfernen
+@route(PREFIX + '/SetLocation')		
+def SetLocation(url, title, region, myLocationRemove):	
+	Log('SetLocation')
+	Log('myLocationRemove')
+
+	if myLocationRemove:
+		Dict['myLocation'] = None
+		msg = L('Lokales Radio entfernt') + ' | '	 + L('neu setzen im Menue') +  L('Orte')
+	else:
+		Dict['myLocation'] = url
+		msg = L('Lokales Radio gesetzt auf') + ': %s' % region
+	return ObjectContainer(header=L('Info'), message=msg)
+
+#-----------------------------
 # Sonderbehandlung: Rubriken aufgerufen via Browser-Url, nicht via opml-Request (Trend, Recents).
-#	die regionale Zuordnung steuern wir über die Header Accept-Language und CONSENT (Header-
+#	die sprachliche Zuordnung steuern wir über die Header Accept-Language und CONSENT (Header-
 #		Auswertung Chrome).
 # 	Die Auswertung erfolgt mittels Stringfunktionen, da die Ausgabe weder im xml- noch im json-Format
 #		erzwungen werden kann.
@@ -582,14 +622,18 @@ def RubrikNoOPML(url, title, image):
 		url = url % (formats, serial)
 		
 	Log('url: ' + url)
-	req = urllib2.Request(url)							
-	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
-	req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
-	req.add_header('CONSENT', loc_browser)			# Browser: 'CONSENT', 'YES+DE.de+V9') (für Recents nicht erf.)	
-	
-	gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
-	ret = urllib2.urlopen(req, context=gcontext)
-	page = ret.read()
+	try:
+		loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
+		HTTP.Headers['Accept-Language'] = '%s, en;q=0.8' % loc_browser
+		HTTP.Headers['CONSENT'] = loc_browser
+		page = HTTP.Request(url).content
+	except Exception as exception:
+		page=''
+		
+	if page == '':
+		msg = L('keine Eintraege gefunden') + " | %s" % str(exception)		
+		return ObjectContainer(header=L('Info'), message=msg)			
+
 	Log(len(page))
 	# Log(page[:600])								# bei Bedarf
 	# headers = ret.headers.dict
@@ -608,7 +652,7 @@ def RubrikNoOPML(url, title, image):
 	Log('Stationen: ' + str(len(stations)))
 	if len(stations) == 0:
 		error_txt = stringextract('"%sitle":"' % capTitel, '"', page)
-		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+		return ObjectContainer(header=L('Fehler'), message=error_txt)
 		
 	for station in stations:
 		text	= stringextract('"%sitle":"'  % capTitel, '"', station)		# Sendername

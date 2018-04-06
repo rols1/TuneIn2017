@@ -2,7 +2,10 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-
+06.04.2018	1.1.2	Option "set Local Radio manually": preferences changed, new icons mylocation +
+			mylocation-remove, code added in Rubriken, loop-structure changed.	
+not on github	1.1.1	TREND_URL changed to HTTPS
+			RubrikNoOPML: HTTP Error 403 (redirect) - HTTP.Request exchanged for urllib2.Request.
 22.03.2018	1.1.0	Update language-files: Italian
 21.03.2018	1.0.9	Update language-files: Italian, lang-adjustments in plugin, corrections in script convert.py
 			(dev.-env.).

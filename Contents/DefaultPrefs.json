@@ -161,6 +161,12 @@
 		"type": "bool",
 		"default": "false"
 	},
+	{	
+		"id": "UseMyLocation",
+		"label": "Lokales Radio manuell einstellen (Menue Orte)",
+		"type": "bool",
+		"default": "false"
+	},
 	{
 		"id": "folder",
 		"type": "text",
