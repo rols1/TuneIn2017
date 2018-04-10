@@ -17,8 +17,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.1.2'		
-VDATE = '06.04.2018'
+VERSION =  '1.1.3'		
+VDATE = '10.04.2018'
 
 # 
 #	
@@ -428,7 +428,7 @@ def Rubriken(url, title, image, offset=0, myLocationRemove=None):
 	if Prefs['UseMyLocation']:	
 		if 'Browse.ashx?id=r' in url:			# By Location call: show myLocation-button to set region manually
 			if 'Browse.ashx?id=r0&' not in url: # Übersicht verwerfen: Africa, Asia ...
-				summ = L('neu setzen im Menue') + ' ' + L('Orte')
+				summ = L('neu setzen im Menue Orte')
 				if  myLocationRemove:			# True im Menü Lokales Radio
 					thumb=R(ICON_MYLOCATION_REMOVE) 
 					info_title = L('entferne Lokales Radio') + ': >%s<' % oc_title2
@@ -595,7 +595,7 @@ def SetLocation(url, title, region, myLocationRemove):
 
 	if myLocationRemove:
 		Dict['myLocation'] = None
-		msg = L('Lokales Radio entfernt') + ' | '	 + L('neu setzen im Menue') +  L('Orte')
+		msg = L('Lokales Radio entfernt') + ' | '	 + L('neu setzen im Menue Orte')
 	else:
 		Dict['myLocation'] = url
 		msg = L('Lokales Radio gesetzt auf') + ': %s' % region

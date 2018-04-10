@@ -2,6 +2,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+10.04.2018	1.1.3	Update language-files: Danish (Tommy Mikkelsen).
+			Fixed language msg-string in SetLocation
 06.04.2018	1.1.2	Option "set Local Radio manually": preferences changed, new icons mylocation +
 			mylocation-remove, code added in Rubriken, loop-structure changed.	
 not on github	1.1.1	TREND_URL changed to HTTPS

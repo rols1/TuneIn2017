@@ -74,10 +74,16 @@
 	"Custom Url muss mit http beginnen": "Custom Url muss mit http beginnen",
 	"maximale Anzahl Streams pro Station (kann Timeouts verhindern)": "maximale Anzahl Streams pro Station (kann Timeouts verhindern)",
 	"Im Trend": "Im Trend",
-	"Kuerzlich gehoert": "Kuerzlich gehoert",
+	"Kuerzlich gehoert": "Kuerzlich gehört",
 	"Plugin Update": "Plugin Update",
 	"Plugin Version:": "Plugin Version",
-	"Plugin aktuell": "Plugin ist aktuell"
+	"Plugin aktuell": "Plugin ist aktuell",
+	"Lokales Radio manuell einstellen (Menue Orte)": "Lokales Radio manuell einstellen (Menue Orte)",
+	"neu setzen im Menue Orte": "neu setzen im Menü Orte",
+	"setze Lokales Radio auf": "setze Lokales Radio auf",
+	"Lokales Radio gesetzt auf": "Lokales Radio gesetzt auf",
+	"entferne Lokales Radio": "entferne Lokales Radio",
+	"Lokales Radio entfernt": "Lokales Radio entfernt"
 }
 
 
