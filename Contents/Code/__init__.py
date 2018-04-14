@@ -17,7 +17,7 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.1.4'	
+VERSION =  '1.1.5'	
 VDATE = '14.04.2018'
 
 # 
@@ -649,24 +649,35 @@ def RubrikNoOPML(url, title, image):
 		url = url % (formats, serial)
 		
 	Log('url: ' + url)			
-	loc_browser = str(Dict['loc_browser'])		
+	loc_browser = str(Dict['loc_browser'])	
 	try:
-		req = urllib2.Request(url)			
-		req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
-		req.add_header('CONSENT', loc_browser)
-		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
-		gcontext.check_hostname = False
-		gcontext.verify_mode = ssl.CERT_NONE
-		ret = urllib2.urlopen(req, context=gcontext)
-		page = ret.read()			
+		loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
+		HTTP.Headers['Accept-Language'] = '%s, en;q=0.8' % loc_browser
+		HTTP.Headers['CONSENT'] = loc_browser
+		page = HTTP.Request(url).content
 	except Exception as exception:
-		error_txt = 'RubrikNoOPML: ' + str(exception) 
-		error_txt = error_txt + ' |\r\n' + url				 			 	 
-		msgH = L('Fehler'); msg = error_txt				
-		msg =  msg.decode(encoding="utf-8", errors="ignore")
-		Log(msg)
-		msg = L('keine Eintraege gefunden') + " | %s" % msg		
-		return ObjectContainer(header=L('Info'), message=msg)			
+		error_txt = 'RubrikNoOPML-1: ' + str(exception) 
+		Log(error_txt)
+		page=''	
+	
+	if page == '':	
+		try:
+			req = urllib2.Request(url)			
+			req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
+			req.add_header('CONSENT', loc_browser)
+			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
+			gcontext.check_hostname = False
+			gcontext.verify_mode = ssl.CERT_NONE
+			ret = urllib2.urlopen(req, context=gcontext)
+			page = ret.read()			
+		except Exception as exception:
+			error_txt = 'RubrikNoOPML-2: ' + str(exception) 
+			error_txt = error_txt + ' |\r\n' + url				 			 	 
+			msgH = L('Fehler'); msg = error_txt				
+			msg =  msg.decode(encoding="utf-8", errors="ignore")
+			Log(msg)
+			msg = L('keine Eintraege gefunden') + " | %s" % msg		
+			return ObjectContainer(header=L('Info'), message=msg)			
 
 	Log(len(page))
 	# Log(page[:600])								# bei Bedarf
@@ -1153,7 +1164,7 @@ def PlayAudio(url, sid, **kwargs):
 	if url:
 		if url == "http://myradio/live/stream.mp3":	# Scherzkeks: Einstellungen-Beispiel kopiert
 			return Redirect(R('tonleiter_harfe.mp3'))
-				
+
 		try: 
 			req = urllib2.Request(url)						# Test auf Existenz, SSLContext für HTTPS erforderlich,
 			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3

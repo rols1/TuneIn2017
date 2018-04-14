@@ -2,6 +2,7 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+14.04.2018	1.1.5	RubrikNoOPML: 2-step url-requests - 1. HTTP.Request, 2. urllib2.Request (if 1. fails).
 14.04.2018	1.1.4	Main, RubrikNoOPML and PlayAudio: urllib2.Request now executed with ssl.SSLContext but without 
 			certifikat-check (HTTP Error 403 on some installations with PMS 1.12.2).
 10.04.2018	1.1.3	Update language-files: Danish (Tommy Mikkelsen).
