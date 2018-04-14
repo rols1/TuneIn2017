@@ -225,26 +225,11 @@ def Main():
 		formats = 'mp3'
 	Dict['formats'] = formats						# Verwendung z.B. in Rubrik Trend
 	
-	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
-	try:
-		# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request
-		url = ROOT_URL % formats
-		req = urllib2.Request(url)					# xml-Übersicht Rubriken
-		req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
-		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
-		gcontext.check_hostname = False
-		gcontext.verify_mode = ssl.CERT_NONE	
-		ret = urllib2.urlopen(req, context=gcontext)
-		page = ret.read()
-	except Exception as exception:	
-		error_txt = 'Main: ' + str(exception) 
-		error_txt = error_txt + ' |\r\n' + url			 			 	 
-		msgH = L('Fehler'); msg = error_txt				
-		msg =  msg.decode(encoding="utf-8", errors="ignore")
-		Log(msg)
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-		return ObjectContainer(header=L('Fehler'), message=error_txt)		
-		
+	url = ROOT_URL % formats
+	page, msg = RequestTunein(FunctionName='Main', url=url)
+	if page == '':	
+		return ObjectContainer(header=L('Info'), message=msg)							
+	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten		
 		
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 	rubriken = blockextract('<outline', page)
@@ -382,26 +367,9 @@ def Rubriken(url, title, image, offset=0, myLocationRemove=None):
 	if Prefs['maxPageContent']:
 		max_count = int(Prefs['maxPageContent'])	# max. Anzahl Einträge ab offset
 
-	loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
-	# Achtung: mit HTTP.Request wirkt sich headers nicht auf TuneIn aus - daher urllib2.Request	
-	try:
-		req = urllib2.Request(url)			
-		req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
-		gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
-		gcontext.check_hostname = False
-		gcontext.verify_mode = ssl.CERT_NONE
-		ret = urllib2.urlopen(req, context=gcontext)
-		page = ret.read()			
-	except Exception as exception:
-		error_txt = 'Rubriken: ' + str(exception) 
-		error_txt = error_txt + '| \r\n' + url				 			 	 
-		msgH = L('Fehler'); msg = error_txt				
-		msg =  msg.decode(encoding="utf-8", errors="ignore")
-		Log(msg)
-		msg = L('keine Eintraege gefunden') + " | %s" % msg	
-		return ObjectContainer(header=L('Info'), message=msg)			
-	
-	
+	page, msg = RequestTunein(FunctionName='Rubriken', url=url)
+	if page == '':	
+		return ObjectContainer(header=L('Info'), message=msg)							
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 		
 	minBitrate = Prefs['minBitrate']
@@ -648,41 +616,11 @@ def RubrikNoOPML(url, title, image):
 		# Log(formats); Log(serial);
 		url = url % (formats, serial)
 		
-	Log('url: ' + url)			
-	loc_browser = str(Dict['loc_browser'])	
-	try:
-		loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
-		HTTP.Headers['Accept-Language'] = '%s, en;q=0.8' % loc_browser
-		HTTP.Headers['CONSENT'] = loc_browser
-		page = HTTP.Request(url).content
-	except Exception as exception:
-		error_txt = 'RubrikNoOPML-1: ' + str(exception) 
-		Log(error_txt)
-		page=''	
-	
+	Log('url: ' + url)	
+	page, msg = RequestTunein(FunctionName='RubrikNoOPML', url=url)
 	if page == '':	
-		try:
-			req = urllib2.Request(url)			
-			req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
-			req.add_header('CONSENT', loc_browser)
-			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
-			gcontext.check_hostname = False
-			gcontext.verify_mode = ssl.CERT_NONE
-			ret = urllib2.urlopen(req, context=gcontext)
-			page = ret.read()			
-		except Exception as exception:
-			error_txt = 'RubrikNoOPML-2: ' + str(exception) 
-			error_txt = error_txt + ' |\r\n' + url				 			 	 
-			msgH = L('Fehler'); msg = error_txt				
-			msg =  msg.decode(encoding="utf-8", errors="ignore")
-			Log(msg)
-			msg = L('keine Eintraege gefunden') + " | %s" % msg		
-			return ObjectContainer(header=L('Info'), message=msg)			
-
+		return ObjectContainer(header=L('Info'), message=msg)					
 	Log(len(page))
-	# Log(page[:600])								# bei Bedarf
-	# headers = ret.headers.dict
-	# Log(headers)
 
 	if 'categories/recents' in url:									# json-artiger Bereich ab Anfang,
 		page = page													# kein Segment erforderlich
@@ -723,6 +661,57 @@ def RubrikNoOPML(url, title, image):
 		)) 
 
 	return oc
+	
+#-----------------------------
+def RequestTunein(FunctionName, url, GetOnlyHeader=None):
+	
+	loc_browser = str(Dict['loc_browser'])	
+	msg=''
+	try:
+		Log("RequestTunein, step 1, called from %s" % FunctionName)
+		loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
+		HTTP.Headers['Accept-Language'] = '%s, en;q=0.8' % loc_browser
+		HTTP.Headers['CONSENT'] = loc_browser
+		if GetOnlyHeader:
+			page = HTTP.Request(url).headers
+			# Log(page)
+		else:
+			page = HTTP.Request(url).content
+	except Exception as exception:
+		error_txt = "%s-1: " % FunctionName  + str(exception) 
+		error_txt = error_txt + ' |\r\n' + url				 			 	 
+		Log(error_txt)
+		page=''	
+	
+	if page == '':	
+		msg=''			
+		try:
+			Log("RequestTunein, step 2, called from %s" % FunctionName)
+			req = urllib2.Request(url)			
+			req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
+			req.add_header('CONSENT', loc_browser)
+			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
+			gcontext.check_hostname = False
+			gcontext.verify_mode = ssl.CERT_NONE
+			ret = urllib2.urlopen(req, context=gcontext)
+			if GetOnlyHeader:
+				page = headers = getHeaders(ret)
+				# Log(page)
+			else:
+				page = ret.read()
+		except Exception as exception:
+			error_txt = "%s-2: " % FunctionName  + str(exception) 
+			error_txt = error_txt + '|\r\n' + url				 			 	 
+			msgH = L('Fehler'); msg = error_txt				
+			msg =  msg.decode(encoding="utf-8", errors="ignore")
+			Log(msg)
+			msg = L('keine Eintraege gefunden') + " | %s" % msg	
+			page=''	
+			# return ObjectContainer(header=L('Info'), message=msg)	
+					
+	# Log(page[:600])								# bei Bedarf
+	return page, msg
+	
 #-----------------------------
 # Auswertung der Streamlinks (Aufrufe von RubrikNoOPML starten mit Ziffer 4):
 #	1. opml-Info laden, Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
@@ -1161,60 +1150,46 @@ def PlayAudio(url, sid, **kwargs):
 	if url is None or url == '':			# sollte hier nicht vorkommen
 		Log('Url fehlt!')
 		# return ObjectContainer(header='Error', message='Url fehlt!') # Web-Player: keine Meldung
+		url=GetLocalUrl()					# lokale mp3-Nachricht,  s.u. GetLocalUrl
+		
 	if url:
 		if url == "http://myradio/live/stream.mp3":	# Scherzkeks: Einstellungen-Beispiel kopiert
 			return Redirect(R('tonleiter_harfe.mp3'))
-
-		try: 
-			req = urllib2.Request(url)						# Test auf Existenz, SSLContext für HTTPS erforderlich,
-			gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  	#	Bsp.: SWR3 https://pdodswr-a.akamaihd.net/swr3
-			gcontext.check_hostname = False
-			gcontext.verify_mode = ssl.CERT_NONE
-			ret = urllib2.urlopen(req, context=gcontext)
-			Log('PlayAudio: %s | %s' % (str(ret.code), url))
-			
-			headers = getHeaders(ret)
-			# Check auf HTML-/Textseite - vermutl. falsche Custom Url:
-			if 'text/html' in str(headers):
-				Log('Error: Textpage ' + url)
-				return Redirect(R('textpage.mp3'))				# mp3: not a stream - this is a text page
-				
-			if sid == None:
-				sid = '0'
-			if sid.startswith('s') and len(sid) > 1:			# '0' = MyRadioStatios + notcompatible stations
-				# audience-opml-Call dient der Aufnahme in Recents - nur stations (Bsp. s202726, p799140 nicht - kein Lifestream).
-				#	aus Chrome-Analyse - siehe Chrome_1Live_Curl.txt - Wiedergabe des Streams allein reicht tunein nicht für Recent!
-				#	Custom-Url ausschließen, Bsp. sid: "u21"
-				# 13.04.2018 Umstellung urllib2.Request auf HTTP.Request wg Nutzerproblem (SLV3_ALERT_BAD_RECORD_MAC), siehe
-				#	https://forums.plex.tv/discussion/comment/1652108/#Comment_1652108.
-				#	Bei Wiederverwendung gcontext.verify_mode = ssl.CERT_NONE setzen
-				#	
-				audience_url='https://opml.radiotime.com/Tune.ashx?audience=Tunein2017&id=%s&render=json&formats=%s&type=station&serial=%s&partnerId=RadioTime&version=2.22'
-				audience_url = audience_url % (sid, Dict['formats'], Dict['serial'])
-				Log('audience_url: ' + audience_url)
-				# cont = HTTP.Request(audience_url).content		# Probleme auf manchen Installationen (HTTP Error 403)
-				req = urllib2.Request(audience_url)			
-				gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1)  
-				gcontext.check_hostname = False
-				gcontext.verify_mode = ssl.CERT_NONE			# siehe https://forums.plex.tv/discussion/comment/1652108/#Comment_1652108
-				ret = urllib2.urlopen(req, context=gcontext)
-				cont = ret.read()				
-				Log(cont[:30])									# falls OK: "status": "200"
-			
-		except Exception as exception:			# selten, da StationList leere Url-Listen abfängt, Bsp.: 
-			error_txt = 'Servermessage4: ' + str(exception) # La Red21.FM Rolling Stones Radio, url:
-			error_txt = error_txt + '\r\n' + url			# http://server-uk4.radioseninternetuy.com:9528/;	 			 	 
-			msgH = L('Fehler'); msg = error_txt				# Textausgabe: 	This station is suspended, if...
-			msg =  msg.decode(encoding="utf-8", errors="ignore")
-			Log(msg)
-			#url=''
-			url=GetLocalUrl()
-			# return ObjectContainer(header=msgH, message=msg) # Framework fängt ab - keine Ausgabe
-	else:		
+						
 		if 'notcompatible.enUS.mp3' in url:
 			url = R('notcompatible.enUS.mp3')	# Kennzeichnung + mp3 von TuneIn 
-		else:
-			url=GetLocalUrl()					# lokale mp3-Nachricht,  s.u. GetLocalUrl	
+			
+		# Header-Check + audience-opml-Cal jweils 2-teilig (für Windows HTTP.Requests, 
+		#	für Linux u.a. urllib2.Request)	
+		page, msg = RequestTunein(FunctionName='PlayAudio, Header-Check', url=url,GetOnlyHeader=True)
+		page = str(page)
+		# Log(page)								# bei Bedarf
+		if 'text/html' in str(page):
+			Log('Error: Textpage ' + url)
+			return Redirect(R('textpage.mp3'))	# mp3: not a stream - this is a text page
+		if 'HTTP Error' in msg:					# beliebiger HTTP-error
+			url=GetLocalUrl()
+			return Redirect(url)
+		 				
+		if sid == None:
+			sid = '0'
+		if sid.startswith('s') and len(sid) > 1:			# '0' = MyRadioStatios + notcompatible stations
+			# audience-opml-Call dient der Aufnahme in Recents - nur stations (Bsp. s202726, p799140 nicht - kein Lifestream).
+			#	aus Chrome-Analyse - siehe Chrome_1Live_Curl.txt - Wiedergabe des Streams allein reicht tunein nicht für Recent!
+			#	Custom-Url ausschließen, Bsp. sid: "u21"
+			# 13.04.2018 Umstellung urllib2.Request auf HTTP.Request wg Nutzerproblem (SLV3_ALERT_BAD_RECORD_MAC), siehe
+			#	https://forums.plex.tv/discussion/comment/1652108/#Comment_1652108.
+			#	Bei Wiederverwendung gcontext.verify_mode = ssl.CERT_NONE setzen
+			#	
+			audience_url='https://opml.radiotime.com/Tune.ashx?audience=Tunein2017&id=%s&render=json&formats=%s&type=station&serial=%s&partnerId=RadioTime&version=2.22'
+			audience_url = audience_url % (sid, Dict['formats'], Dict['serial'])
+			Log('audience_url: ' + audience_url)
+			page, msg = RequestTunein(FunctionName='PlayAudio, audience_url', url=audience_url)
+			Log(page[:30])									# falls OK: "status": "200"
+			if page == '':
+				url=GetLocalUrl()							
+	else:		
+		url=GetLocalUrl()					# lokale mp3-Nachricht,  s.u. GetLocalUrl	
 		
 	return Redirect(url)
 	
