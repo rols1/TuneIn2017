@@ -1,3 +1,4 @@
+import httplib			# headers -> dictionary
 import urllib			# urllib.quote()
 import urllib2			# urllib2.Request
 import ssl				# HTTPS-Handshake
@@ -17,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.1.5'	
-VDATE = '14.04.2018'
+VERSION =  '1.1.7'	
+VDATE = '19.04.2018'
 
 # 
 #	
@@ -78,9 +79,9 @@ MENU_ICON 	=  	{'menu-lokale.png', 'menu-musik.png', 'menu-sport.png', 'menu-new
 					 'menu-talk.png', 'menu-audiobook.png', 'menu-pod.png', 
 				}
 
-ROOT_URL 	= 'http://opml.radiotime.com/Browse.ashx?formats=%s'
-USER_URL 	= 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
-NEWS_URL	= 'http://opml.radiotime.com/Browse.ashx?id=c57922&formats=%s'
+ROOT_URL 	= 'https://opml.radiotime.com/Browse.ashx?formats=%s'
+USER_URL 	= 'https://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
+NEWS_URL	= 'https://opml.radiotime.com/Browse.ashx?id=c57922&formats=%s'
 TREND_URL	= 'https://tunein.com/radio/trending/'
 RECENTS_URL	= 'https://api.tunein.com/categories/recents?formats=%s&serial=%s&partnerId=RadioTime&version=2.22'
 
@@ -174,7 +175,7 @@ def Main():
 	title = 'Durchstoebern'
 	title = L(title)
 			
-	oc = ObjectContainer(title2=title, art=ObjectContainer.art)
+	oc = ObjectContainer(title2=title, art=ObjectContainer.art, no_cache=True)
 
 	oc.add(InputDirectoryObject(key=Callback(Search), title=u'%s' % L('Suche'), prompt=u'%s' % L('Suche Station / Titel'), 
 		thumb=R(ICON_SEARCH)))
@@ -227,9 +228,14 @@ def Main():
 	
 	url = ROOT_URL % formats
 	page, msg = RequestTunein(FunctionName='Main', url=url)
-	if page == '':	
-		return ObjectContainer(header=L('Info'), message=msg)							
-	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten		
+
+	# 17.04.2018 Ausfall  Local, Music, Sport, Talk, Podcasts - tunein blockiert wesentliche opm-Calls 
+	#	Start einer Pluginversion mit Auswertung der tunein-Webseiten. 
+	# 19.04.2018 opm-Calls nicht mehr geblockt. Die Webseitenvariante wird parallel fortgesetzt.
+	# Der Return an dieser Stelle unterbleibt, damit bei Wiederholung der Blockade das Plugin mit
+	#	den nicht-opml-gebundenen Funktionen weiter arbeiten kann.
+	#	if page == '':	
+	#		return ObjectContainer(header=L('Info'), message=msg)							
 		
 	Log(page[:30])									# wg. Umlauten UnicodeDecodeError möglich bei größeren Werten
 	rubriken = blockextract('<outline', page)
@@ -356,7 +362,10 @@ def Rubriken(url, title, image, offset=0, myLocationRemove=None):
 	url_org 	= url	# sichern
 	title_org 	= title	# sichern
 	
-	if Prefs['UseMyLocation']:	
+	# UseMyLocation ersetzt http://opml.radiotime.com/Browse.ashx?c=local&formats=mp3 durch
+	#	http://opml.radiotime.com/Browse.ashx?id=r100762&formats=mp3 (id=r100762 hier Bielefeld)
+	if Prefs['UseMyLocation']: 
+		Log('UseMyLocation: ' + str(Dict['myLocation']))	
 		if Dict['myLocation']:							# neuer Durchlauf mit manuell gesetzter Region
 			if 'Browse.ashx?c=local' in url:			# Menü Lokales Radio
 				Log(Dict['myLocation'])
@@ -401,7 +410,7 @@ def Rubriken(url, title, image, offset=0, myLocationRemove=None):
 	if offset:
 		oc_title2 = oc_title2 + ' | %s...' % offset		# Bsp.: 
 	
-	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art)
+	oc = ObjectContainer(title2=oc_title2, art=ObjectContainer.art, no_cache=True)
 	oc = home(oc)
 	
 	if '<outline text' in page:							# Bsp. <outline text="Stations (2)" key="stations">
@@ -582,7 +591,7 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für Rubriken
 	return oc					
 	
 #-----------------------------
-# SetLocation (Aufruf Rubriken): Region für Lokales Radiomanuell setzen/entfernen
+# SetLocation (Aufruf Rubriken): Region für Lokales Radio manuell setzen/entfernen
 @route(PREFIX + '/SetLocation')		
 def SetLocation(url, title, region, myLocationRemove):	
 	Log('SetLocation')
@@ -591,6 +600,7 @@ def SetLocation(url, title, region, myLocationRemove):
 	if myLocationRemove:
 		Dict['myLocation'] = None
 		msg = L('Lokales Radio entfernt') + ' | '	 + L('neu setzen im Menue Orte')
+		Dict.Save()
 	else:
 		Dict['myLocation'] = url
 		msg = L('Lokales Radio gesetzt auf') + ': %s' % region
@@ -621,65 +631,78 @@ def RubrikNoOPML(url, title, image):
 	if page == '':	
 		return ObjectContainer(header=L('Info'), message=msg)					
 	Log(len(page))
-
-	if 'categories/recents' in url:									# json-artiger Bereich ab Anfang,
-		page = page													# kein Segment erforderlich
-		# Anfangsbuchstaben groß
-		capType='T';capTitel='T';capText='T';capImage='I';capSub='S';capID='I';capFollow='F'; # uppercase
-	else:
+		
+	if 'categories/recents' not in url:								# bei recents kein Segment erforderlich	
 		page=stringextract('"containerItems":', '"player":', page)	# json-artigen Bereich ausschneiden
-		# Anfangsbuchstaben klein
-		capType='t';capTitel='t';capText='t';capImage='i';capSub='s';capID='i';capFollow='f'; # lowercase
+		
+	# Uppercase für relevante Parameter:
+	page = (page.replace('"title"','"Title"').replace('"image"','"Image"').replace('"category"','"Category"')
+		.replace('"followText"','"FollowText"').replace('"shareText"','"ShareText"').replace('"id"','"Id"')
+		.replace('type','Type').replace('subtitle','Subtitle').replace('containerType','ContainerType')
+		.replace('token','Token'))
+		
 	
-	stations=blockextract('%sype":"Station"' %capType, page)		
+	stations=blockextract('Type":"Station"', page)		
 	Log('Stationen: ' + str(len(stations)))
 	if len(stations) == 0:
-		error_txt = stringextract('"%sitle":"' % capTitel, '"', page)
+		error_txt = stringextract('"Title":"', '"', page)
 		return ObjectContainer(header=L('Fehler'), message=error_txt)
 		
 	for station in stations:
-		text	= stringextract('"%sitle":"'  % capTitel, '"', station)		# Sendername
+		station = stringextract('ContainerType', '"Token"', station)	# begrenzen
+		text	= stringextract('"Title":"', '"', station)		# Sendername
+		text	= text.replace('\u002F', '/')
 		typ		= 'Station'					# immer Station		
-		image	= stringextract('"%smage":"' % capImage, '"', station)		# Javascript Unicode escape \u002F
+		image	= stringextract('"Image":"', '"', station)		# Javascript Unicode escape \u002F
 		image	= image.replace('\u002F', '/')
-		key		= '?'						# fehlt - stringextract('', '"', station)
-		bitrate	= '?'						# fehlt, ? für PHT
-		subtext		= stringextract('"%subtitle":"' % capSub, '"', station)
-		FollowText	= stringextract('"%sollowText":"' % capFollow, '"', station)
-		preset_id 	= stringextract('"%sd":"' % capID, '"', station)	# dto. targetItemId, scope, guideId
+		FollowText	= stringextract('"FollowText":"', '"', station)
+		ShareText	= stringextract('"ShareText":"', '"', station)
+		preset_id 	= stringextract('"Id":"', '"', station)		# dto. targetItemId, scope, guideId -> url
+		subtitle	= stringextract('"Subtitle":"', '"', station)
 		local_url="http://opml.radiotime.com/Tune.ashx?id=%s&formats=%s"	% (preset_id, Dict['formats'])
 		
 		# Log("%s | %s | %s | %s"	% (typ,text,subtext,preset_id))	# bei Bedarf
 		# Log(local_url)
-		text		= text.decode(encoding="utf-8")
-		subtext		= subtext.decode(encoding="utf-8")
-		FollowText	= FollowText.decode(encoding="utf-8")
+		text	= text.decode(encoding="utf-8")
+		summ	= FollowText.decode(encoding="utf-8")
+		tagline	= subtitle.decode(encoding="utf-8")
 		oc.add(DirectoryObject(
-			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
+			key = Callback(StationList, url=local_url, title=text, summ=summ, image=image, typ=typ, bitrate='?',
 			preset_id=preset_id),
-			title=text, summary=subtext, tagline=FollowText, thumb=image 	
-		)) 
+			title=text, summary=summ, tagline=tagline, thumb=image 	
+		)) 	
 
 	return oc
 	
 #-----------------------------
+# 2-stufiger Ablauf: 1. HTTP.Request. bei Fehlschlag 2. urllib2.Request
+#	notwendig, da trotz identischer URL-Basis die SSL-Kommunikation ablaufen kann.
+# Das Problem "Moved Temporarily" im Location“-Header-Feld wird hier nicht behandelt (bisher nicht notwendig),
+#	s. get_pls -> Zertifikate-Problem.
+# 13.04.2018 Umstellung urllib2.Request auf HTTP.Request wg Nutzerproblem (SLV3_ALERT_BAD_RECORD_MAC), siehe
+#	https://forums.plex.tv/discussion/comment/1652108/#Comment_1652108.
+#
+#	Ausblick: falls Zertifikatecheck erforderlich wird, die Verwendung von Let's Encrypt prüfen (Alternative
+#		Linux-Zertifikat, s. get_pls)
+#
 def RequestTunein(FunctionName, url, GetOnlyHeader=None):
-	
 	loc_browser = str(Dict['loc_browser'])	
 	msg=''
+
 	try:
 		Log("RequestTunein, step 1, called from %s" % FunctionName)
 		loc_browser = str(Dict['loc_browser'])			# ergibt ohne str: u'de
 		HTTP.Headers['Accept-Language'] = '%s, en;q=0.8' % loc_browser
 		HTTP.Headers['CONSENT'] = loc_browser
 		if GetOnlyHeader:
-			page = HTTP.Request(url).headers
-			# Log(page)
+			page = HTTP.Request(url).headers	# Dict
+			Log('getHeaders OK')
+			# Log(page)  # Bei Bedarf, nicht kürzen
 		else:
-			page = HTTP.Request(url).content
+			page = HTTP.Request(url, cacheTime=1).content
 	except Exception as exception:
-		error_txt = "%s-1: " % FunctionName  + str(exception) 
-		error_txt = error_txt + ' |\r\n' + url				 			 	 
+		error_txt = "%s-1: " % FunctionName  + repr(exception) 
+		error_txt = error_txt + ' | ' + url				 			 	 
 		Log(error_txt)
 		page=''	
 	
@@ -695,13 +718,14 @@ def RequestTunein(FunctionName, url, GetOnlyHeader=None):
 			gcontext.verify_mode = ssl.CERT_NONE
 			ret = urllib2.urlopen(req, context=gcontext)
 			if GetOnlyHeader:
-				page = headers = getHeaders(ret)
-				# Log(page)
+				page = getHeaders(ret)		# Dict
+				Log('getHeaders OK')
+				# Log(page)  # Bei Bedarf, nicht kürzen
 			else:
 				page = ret.read()
 		except Exception as exception:
-			error_txt = "%s-2: " % FunctionName  + str(exception) 
-			error_txt = error_txt + '|\r\n' + url				 			 	 
+			error_txt = "%s-2: " % FunctionName  + repr(exception) 
+			error_txt = error_txt + ' | ' + url				 			 	 
 			msgH = L('Fehler'); msg = error_txt				
 			msg =  msg.decode(encoding="utf-8", errors="ignore")
 			Log(msg)
@@ -752,18 +776,12 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 			url = R('notcompatible.enUS.mp3') # Bsp. 106.7 | Z106.7 Jackson
 			oc.add(CreateTrackObject(url=url, title=title, summary=summ, fmt='mp3', thumb=image, sid='0'))
 			return oc
-		
+
 	if 'Tune.ashx?' in url:						# normaler TuneIn-Link zur Playlist o.ä.
-		try:
-			cont = HTTP.Request(url).content	# Bsp. http://opml.radiotime.com/Tune.ashx?id=s24878
-			# Log(cont)							# hier schon UnicodeDecodeError möglich (selten)
-		except Exception as exception:			
-				error_txt = 'Servermessage1: ' + str(exception) 
-				error_txt = error_txt + '\r\n' + url
-				cont = ''
+		cont, msg = RequestTunein(FunctionName='StationList, Tune.ashx-Call', url=url)		
 		if cont == '':
-			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-			return ObjectContainer(header=L('Fehler'), message=error_txt)		
+			error_txt = msg.decode(encoding="utf-8", errors="ignore")
+			return ObjectContainer(header=L('Fehler'), message=msg)		
 		if ': 400' in cont:				# passiert (manchmal) bei 'neuer Versuch' (mit preset_id)
 			error_txt = L("keinen Stream gefunden zu")  + '\r\n' + url  + '\r\n' + 'Tunein: %s' % cont
 			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
@@ -777,7 +795,7 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 	# .pls-Auswertung ziehen wir vor, auch wenn (vereinzelt) .m3u-Links enthalten sein können
 	if '.pls' in cont:					# Tune.ashx enthält häufig Links zu Playlist (.pls, .m3u)				
 		cont = get_pls(cont)
-		if cont.startswith('Servermessage3'): 						# Bsp. Rolling Stones by Radio UNO Digital, pls-Url: 
+		if cont.startswith('get_pls-error'): 						# Bsp. Rolling Stones by Radio UNO Digital, pls-Url: 
 			cont = cont.decode(encoding="utf-8", errors="ignore")	# http://radiounodigital.com/Players-Tunein/rollingstones.pls
 			return ObjectContainer(header=L('Fehler'), message=cont)
 	
@@ -925,8 +943,8 @@ def StreamTests(url_list,summ_org):
 						url = '%s;' % url
 					else:								# ohne Portnummer, ohne Pfad: letzter Test auf Shoutcast-Status 
 						p = urlparse(url)
-						if p.path == '':
-							cont = HTTP.Request(url).content# Bsp. Radio Soma -> http://live.radiosoma.com
+						if p.path == '':				# Bsp. Radio Soma -> http://live.radiosoma.com
+							cont, msg = RequestTunein(FunctionName='StreamTests - Shoutcast-Status', url=url)
 							if 	'<b>Stream is up at' in cont:
 								Log('Shoutcast ohne Portnummer: <b>Stream is up at')
 								url = '%s/;' % url	
@@ -945,7 +963,8 @@ def get_pls(url):               # Playlist extrahieren
 	#	Bsp. http://www.asfradio.com/launch.asp?p=pls
 	format_list = ['.pls', '.m3u', '=pls', '=m3u', '=ram', '=asx']
 	
-	urls =url.splitlines()	# mehrere möglich, auch SHOUTcast- und m3u-Links, Bsp. http://64.150.176.192:8043/, 
+	urls =url.splitlines()	# mehrere möglich, auch SHOUTcast- und m3u-Links, Bsp. http://64.150.176.192:8043/
+
 	pls_cont = []
 	for url in urls:
 		# Log(url)
@@ -957,12 +976,9 @@ def get_pls(url):               # Playlist extrahieren
 			if pat in url:	
 				isInFormatList = True		
 				break
-		
+													# 1. Versuch (2-step)
 		if 	isInFormatList:	# .pls auch im Pfad möglich, Bsp. AFN: ../AFNE_WBN.pls?DIST=TuneIn&TGT=..
-			try:									# 1. Versuch (klappt mit KSJZ.db unter Linux, nicht unter Windows)
-				cont = HTTP.Request(url).content 	# Framework-Problem möglich: URLError: <urlopen error unknown url type: itunes>	
-			except: 	
-				cont=''
+			cont, msg = RequestTunein(FunctionName='get_pls - isInFormatList', url=url)
 		cont = cont.strip()
 		Log('cont1: ' + cont)
 
@@ -984,7 +1000,7 @@ def get_pls(url):               # Playlist extrahieren
 				# Log(headers)
 				cont = req.read()
 			except Exception as exception:	
-				error_txt = 'Servermessage3: ' + str(exception)
+				error_txt = 'get_pls-error: ' + str(exception)	# hier nicht repr() verwenden
 				# Rettungsversuch - hilft bei SomaFM-Stationen:
 				# HTTP Error 302: Found - Redirection to url 'itunes://somafm.com/xmasrocks130.pls?bugfix=safari7' is not allowed
 				if 'itunes://' in error_txt:	# Bsp. http://api.somafm.com/xmasrocks130.pls
@@ -1000,10 +1016,11 @@ def get_pls(url):               # Playlist extrahieren
 					if '[playlist]' in cont:		# nochmal gut gegangen
 						pass
 					else:
-						error_txt = 'Servermessage3: itunes-Url not supported by this plugin.' + '\r\n' + str(exception)
+						error_txt = 'get_pls-error: itunes-Url not supported by this plugin.' + ' | ' + str(exception)
 						return error_txt
 				else:	
-					error_txt = error_txt + '\r\n' + url
+					error_txt = error_txt + ' | ' + url
+					error_txt = error_txt.decode(encoding="utf-8")
 					Log(error_txt)
 					return error_txt
 												
@@ -1035,9 +1052,10 @@ def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werde
 	m3u_cont = []
 	for url in urls:	
 		# Bsp. http://icy3.abacast.com/progvoices-progvoicesmp3-32.m3u?source=TuneIn
+		#	oder Radio Soma http://www.radiosoma.com/RadioSoma_107.9_MHz.m3u
 		if url.startswith('http') and '.m3u' in url:	
 			try:									
-				req = HTTP.Request(url).content 
+				req, msg = RequestTunein(FunctionName='get_m3u', url=url)
 				req = urllib2.unquote(req).strip()	
 				# Log(req)	
 			except: 	
@@ -1162,24 +1180,29 @@ def PlayAudio(url, sid, **kwargs):
 		# Header-Check + audience-opml-Cal jweils 2-teilig (für Windows HTTP.Requests, 
 		#	für Linux u.a. urllib2.Request)	
 		page, msg = RequestTunein(FunctionName='PlayAudio, Header-Check', url=url,GetOnlyHeader=True)
-		page = str(page)
-		# Log(page)								# bei Bedarf
+		# Log(page)								# bei Bedarf, page hier Dict
+
 		if 'text/html' in str(page):
 			Log('Error: Textpage ' + url)
 			return Redirect(R('textpage.mp3'))	# mp3: not a stream - this is a text page
 		if 'HTTP Error' in msg:					# beliebiger HTTP-error
 			url=GetLocalUrl()
 			return Redirect(url)
+		try:									# möglich: 'HTTPHeaderProxy' object has no attribute 'get'
+			stype = page.get('content-type')
+			if 	stype == 'video/x-ms-asf':
+				url=GetLocalUrl()
+				return Redirect(url)
+		except Exception as exception:
+			error_txt = "error get content-type: " + repr(exception) 
+			Log(error_txt)
 		 				
-		if sid == None:
+		if sid == None:							# Bsp. Der Feinmann-Translator http://www.dradio.de/wurf-tracks/112586.1420.mp3
 			sid = '0'
 		if sid.startswith('s') and len(sid) > 1:			# '0' = MyRadioStatios + notcompatible stations
 			# audience-opml-Call dient der Aufnahme in Recents - nur stations (Bsp. s202726, p799140 nicht - kein Lifestream).
 			#	aus Chrome-Analyse - siehe Chrome_1Live_Curl.txt - Wiedergabe des Streams allein reicht tunein nicht für Recent!
 			#	Custom-Url ausschließen, Bsp. sid: "u21"
-			# 13.04.2018 Umstellung urllib2.Request auf HTTP.Request wg Nutzerproblem (SLV3_ALERT_BAD_RECORD_MAC), siehe
-			#	https://forums.plex.tv/discussion/comment/1652108/#Comment_1652108.
-			#	Bei Wiederverwendung gcontext.verify_mode = ssl.CERT_NONE setzen
 			#	
 			audience_url='https://opml.radiotime.com/Tune.ashx?audience=Tunein2017&id=%s&render=json&formats=%s&type=station&serial=%s&partnerId=RadioTime&version=2.22'
 			audience_url = audience_url % (sid, Dict['formats'], Dict['serial'])
@@ -1224,14 +1247,9 @@ def SearchInFolders(preset_id, ID):
 	
 	username = Prefs['username']
 	url = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&serial=%s' % serial	
-	try:
-		page = HTTP.Request(url, cacheTime=1).content						# Ordner-Übersicht laden
-	except Exception as exception:			
-			error_txt = 'Servermessage8: ' + str(exception) 
-			error_txt = error_txt + '\r\n' + url
-			page = ''
+	page, msg = RequestTunein(FunctionName='SearchInFolders: Ordner-Liste laden', url=url)
 	if page == '':
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		error_txt = msg.decode(encoding="utf-8", errors="ignore")
 		Log(error_txt)
 		return ObjectContainer(header=L('Fehler'), message=error_txt)		
 	Log(page[:10])
@@ -1261,7 +1279,7 @@ def SearchInFolders(preset_id, ID):
 				ordner_url = unescape(ordner_url) 
 				foldername = stringextract('title=', '&', ordner_url)
 				guide_id = stringextract('guide_id=', '&', ordner_url)
-				page = HTTP.Request(ordner_url, cacheTime=1).content		# Ordner-Inhalt laden	
+				page, msg = RequestTunein(FunctionName='SearchInFolders: Ordner-Inhalt laden', url=ordner_url)
 				if preset_id in page:
 					return True, foldername, guide_id, str(foldercnt)				
 		
@@ -1272,7 +1290,7 @@ def SearchInFolders(preset_id, ID):
 #	ID='favoriteId': Rückgabe der FavoriteId (kennzeichnet die Position des Fav mit preset_id im Profil),
 #					Abgleich erfolgt mit "Id"
 #					falls preset_id mit u startet (Bsp. u21), handelt es sich um eine Custom Url,
-#					Abgleich erfolgt ohne mit "FavoriteId" (preset_id ohne u)
+#					Abgleich erfolgt mit "FavoriteId" (preset_id ohne u)
 #	
 def SearchInProfile(ID, preset_id):	
 	Log('SearchInProfile')
@@ -1291,14 +1309,9 @@ def SearchInProfile(ID, preset_id):
 		
 	favoriteId = guide_id
 	if ID == 'favoriteId':
-		try:	
-			page = HTTP.Request(url, cacheTime=1).content		
-		except Exception as exception:			
-				error_txt = 'Servermessage11: ' + str(exception) 
-				error_txt = error_txt + '\r\n' + url
-				page = ''
+		page, msg = RequestTunein(FunctionName='SearchInProfile: favoriteId suchen', url=url)
 		if page == '':
-			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+			error_txt = msg.decode(encoding="utf-8", errors="ignore")
 			Log(error_txt)
 			return ObjectContainer(header=L('Fehler'), message=error_txt)		
 		Log(page[:10])				
@@ -1339,47 +1352,42 @@ def Favourit(ID, preset_id, folderId, includeOnDeck=None, **kwargs):		# unexpect
 	if not Prefs['username']  or not Prefs['passwort']:
 		msg = L('Username und Passwort sind fuer diese Aktion erforderlich')
 		return ObjectContainer(header=L('Fehler'), message=msg)
-		
-	# Query prüft, ob der Tunein-Account bereits mit der serial-ID verknüpft ist
+
+	# Query prüft, ob der Tunein-Account bereits mit der serial-ID verknüpft ist, Rückgabe username falls OK 
+	#	verknüpfte Geräte: https://tunein.com/devices/
 	query_url = 'https://opml.radiotime.com/Account.ashx?c=query&partnerId=%s&serial=%s' % (partnerId,serial)
-	# Log(queqry_url)
-	try:
-		page = HTTP.Request(query_url, headers=headers, cacheTime=1).content				# 1. Query
-	except Exception as exception:			
-			error_txt = 'Servermessage5: ' + str(exception) 
-			error_txt = error_txt + '\r\n' + url
-			page = ''
-	if page == '':
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-		Log(error_txt)
-		return ObjectContainer(header=L('Fehler'), message=error_txt)		
-	Log('Fav-Query: ' + page[:10])
+	# Log(query_url)
+	page, msg = RequestTunein(FunctionName='Favourit - association-test', url=query_url)	# 1. Query
+	if page == '':	
+		return ObjectContainer(header=L('Fehler'), message=msg)							
+
+	Log('Fav-Query: ' + page[:10])				 
 	tname  = stringextract('text="', '"', page)	# Bsp. <outline type="text" text="testuser"/>
 	is_joined = False
 	if tname == Prefs['username']:				
 		is_joined = True						# Verknüpfung bereits erfolgt
-	Log('is_joined: ' + str(is_joined))
+	if "<fault>" in page:						# trotzdem weiter, Call zur Verknüpfung folgt
+		fault =  stringextract('<fault>', '</fault>', page) # Bsp. "No associated account"
+		Log(fault)
 		
+	Log('is_joined: ' + str(is_joined))	
 	if is_joined == False:
 		# Join verknüpft Account mit serial-ID. Vorhandene Presets werden eingebunden
 		# 	Ersetzung: partnerId, username, password, serial
 		join_url = ('https://opml.radiotime.com/Account.ashx?c=join&partnerId=%s&username=%s&password=%s&serial=%s' 
 					% (partnerId,username,password,serial))
-		try:
-			page = HTTP.Request(join_url, headers=headers, cacheTime=1).content			# 2. Join
-		except Exception as exception:			
-				error_txt = 'Servermessage6: ' + str(exception) 		# Bsp. 403 - Forbidden..
-				error_txt = error_txt + '\r\n' + url
-				page = ''
-		if page == '':
-			error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-			Log(error_txt)
-			return ObjectContainer(header=L('Fehler'), message=error_txt)		
+
+		page, msg = RequestTunein(FunctionName='Favourit - join', url=join_url)				# 2. Join (is_joined=False)
+		if page == '':	
+			return ObjectContainer(header=L('Fehler'), message=msg)							
 		# Log('Fav-Join: ' + page)	# bei Bedarf
 		
 		status  = stringextract('<status>', '</status>', page)
+		Log(status)
 		if '200' != status:								# 
 			title  = stringextract('<title>', '</title>', page)
+			if title == '':
+				title  = 'status ' + status
 			msg = L('Problem mit Username / Passwort') + ' | Tunein: ' + title	
 			Log(msg)
 			return ObjectContainer(header=L('Fehler'), message=msg)
@@ -1411,24 +1419,17 @@ def Favourit(ID, preset_id, folderId, includeOnDeck=None, **kwargs):		# unexpect
 	if ID == 'add' or ID == 'remove':
 		fav_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&id=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s' 
 				% (ID,preset_id,serial,partnerId))
-	try:
-		req = HTTP.Request(fav_url, headers=headers, cacheTime=1)		# 3. Add / Remove
-		page = req.content
-		# h = req.headers; Log(h)	# nichts Relevantes	
-		
-	except Exception as exception:			
-			error_txt = 'Servermessage7: ' + str(exception) 
-			error_txt = error_txt + '\r\n' + fav_url
-			page = ''
-	if page == '':
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
-		Log(error_txt)
-		return ObjectContainer(header=L('Fehler'), message=error_txt)		
+
+	page, msg = RequestTunein(FunctionName="Favourit - ID=%s" % ID, url=fav_url)		# 3. Add / Remove
+	if page == '':	
+		return ObjectContainer(header=L('Fehler'), message=msg)							
 	# Log('Fav add/remove: ' + page)
 	
 	status  = stringextract('<status>', '</status>', page)				# Ergebnisausgabe
 	if '200' != status:	
 		title  = stringextract('<title>', '</title>', page)
+		if title == '':
+			title  = 'status ' + status
 		msg = L('fehlgeschlagen') + ' | Tunein: ' + title			
 		return ObjectContainer(header=L('Fehler'), message=msg)
 	else:
@@ -1475,14 +1476,9 @@ def Folder(ID, title, foldername, folderId, **kwargs):
 		folder_url = ('https://opml.radiotime.com/favorites.ashx?render=xml&c=%s&folderId=%s&formats=mp3,aac,ogg,flash,html&serial=%s&partnerId=%s' 
 					% (ID,folderId,serial,partnerId))	
 						
-	try:
-		page = HTTP.Request(folder_url, headers=headers, cacheTime=1).content		
-	except Exception as exception:			
-			error_txt = 'Servermessage9: ' + str(exception) 		# Bsp. 403 - Forbidden..
-			error_txt = error_txt + '\r\n' + url
-			page = ''
+	page, msg = RequestTunein(FunctionName='Folder: %s' % ID, url=folder_url)
 	if page == '':
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		error_txt = msg.decode(encoding="utf-8", errors="ignore")
 		Log(error_txt)
 		return ObjectContainer(header=L('Fehler'), message=error_txt)		
 	# Log('Fav-Join: ' + page)
@@ -1516,15 +1512,10 @@ def FolderMenu(title, ID, preset_id, checkFiles=None, **kwargs):	#  unexpected k
 	loc_browser = str(Dict['loc_browser'])			
 	headers = {'Accept-Language': "%s, en;q=0.8" % loc_browser}
 	
-	preset_url = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&serial=%s' % serial	
-	try:
-		page = HTTP.Request(preset_url, headers=headers, cacheTime=1).content		
-	except Exception as exception:			
-			error_txt = 'Servermessage10: ' + str(exception) 		
-			error_txt = error_txt + '\r\n' + url
-			page = ''
+	preset_url = 'http://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&serial=%s' % serial
+	page, msg = RequestTunein(FunctionName='FolderMenu: ID %s, Liste laden' % ID, url=preset_url)	
 	if page == '':
-		error_txt = error_txt.decode(encoding="utf-8", errors="ignore")
+		error_txt = msg.decode(encoding="utf-8", errors="ignore")
 		Log(error_txt)
 		return ObjectContainer(header=L('Fehler'), message=error_txt)
 				
@@ -1537,14 +1528,11 @@ def FolderMenu(title, ID, preset_id, checkFiles=None, **kwargs):	#  unexpected k
 				furl 		=  stringextract('URL="', '"', rubrik)
 				furl		= unescape(furl)							# wie in SearchInFolders
 				items_cnt 	= L('nicht gefunden')
-				try:
-					page = 		HTTP.Request(furl, headers=headers, cacheTime=1).content	# Inhalte abfragen
-					items_cnt =  len(blockextract('URL=', page))		# outline unscharf
-				except:
-					pass
+				page, msg = RequestTunein(FunctionName='FolderMenu: %s, Inhalt laden' % foldername, url=furl)	
+				items_cnt =  len(blockextract('URL=', page))		# outline unscharf
 				
 				if ID == 'removeFolder':	# -> Ordner entfernen, 
-					title = foldername + ': ' + L('Ordner entfernen') + ' | ' + L('ohne Rueckfrage')
+					title = foldername + ': ' + L('Ordner entfernen') + ' | ' + L('ohne Rueckfrage!')
 					summ = L('Anzahl der Eintraege') + ': ' + str(items_cnt)
 					thumb = R(ICON_FOLDER_REMOVE)
 					if foldername == 'General':
@@ -1606,7 +1594,7 @@ def ListMRS(path):
 			name = name.strip(); url = url.strip() 
 			name =  name.decode('utf-8')
 		except:
-			name='';url=''
+			name=''; url=''
 		Log(name); Log(url); 
 		
 		if name=='' and url=='':
@@ -1659,9 +1647,8 @@ def SingleMRS(name, url, max_streams, image):
 		message="%s %s" % (msg, name)
 		return ObjectContainer(header=L('Fehler'), message=message)
 		
-	if url_list.startswith('Servermessage3'): 					# z.B: Redirection to url ..  is not allowed, einschl. 
-		cont = url_list.join(' | ')								# itunes-Url not supported by this plugin
-		cont = cont.decode(encoding="utf-8")	
+	if url_list.startswith('get_pls-error'): 					# z.B: Redirection to url ..  is not allowed, einschl.
+		cont = url_list.decode(encoding="utf-8")				# itunes-Url not supported by this plugin	
 		return ObjectContainer(header=L('Fehler'), message=cont)	
 	
 	url_list, err_flag =  StreamTests(url_list,summ_org='')
@@ -1683,7 +1670,7 @@ def SingleMRS(name, url, max_streams, image):
 		summ  = '%s | %s' % (summ, server)
 		summ = summ.decode('utf-8')		# ev. für song erforderlich
 		if summ.strip().startswith('|'):
-			summ = summ[2:]
+			summ = summ[3:]
 		
 		fmt='mp3'								# Format nicht immer  sichtbar - Bsp. http://addrad.io/4WRMHX. Ermittlung
 		if 'aac' in url:						#	 in getStreamMeta (contenttype) hier bisher nicht genutzt
@@ -2080,7 +2067,7 @@ def myL(string):		# Erweiterung, falls L(string) von czukowski nicht funktionier
 #		
 def getStreamMeta(address):
 	Log('getStreamMeta: ' + address)
-	import httplib
+	# import httplib			# bereits geladen
 	# import httplib2 as http	# hier nicht genutzt
 	# import pprint				# hier nicht genutzt
 	# import re					# bereits geladen
@@ -2107,6 +2094,7 @@ def getStreamMeta(address):
 	request.add_header('icy-metadata', 1)
 	gcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1) 	# 08.10.2017 SSLContext für https://hr-youfm-live.sslcast.addradio.de
 	gcontext.check_hostname = False
+	gcontext.verify_mode = ssl.CERT_NONE
 	
 	try:
 		response = urllib2.urlopen(request, context=gcontext, timeout=UrlopenTimeout)	

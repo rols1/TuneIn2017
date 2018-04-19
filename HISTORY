@@ -2,6 +2,18 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
+	
+19.04.2018	1.1.7	Main: skip return if the main browes-function (opml-Call) fails or is blocked by tunein. 
+			RubrikNoOPML: uppercase for relevant parameters changed. 
+			Favourit: 2-step url-requests (executed in outsourced RequestTunein), ditto PlayAudio,
+			StationList, StreamTests,get_m3u, SearchInFolders, SearchInProfile, Favourit, Folder.
+			SetLocation (Dict.Save), Rubriken (ObjectContainer: no_cache=True): to provide delete-status of 
+			Local Radio if user press Back button.
+			Favourit: addded log statement for status after tunein-association-call.
+			getStreamMeta: gcontext.verify_mode=ssl.CERT_NONE added.
+			RequestTunein, get_pls: str(exception) replaced with repr(exception) - str() missed after return.
+			PlayAudio: header-check analyzed as dict .
+			Language-files: exclamation mark added in "ohne Rueckfrage!".
 14.04.2018	1.1.6	New function RequestTunein (Tunein-calls outsourced, 2 steps-procedure), used from Main, 
 			Rubriken, RubrikNoOPML and PlayAudio (not relevant for PHT).
 			PlayAudio restructered	
