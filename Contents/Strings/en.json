@@ -83,7 +83,8 @@
 	"setze Lokales Radio auf": "set Local Radio to",
 	"Lokales Radio gesetzt auf": "Local Radio set to",
 	"entferne Lokales Radio": "remove Local Radio",
-	"Lokales Radio entfernt": "Local Radio removed"
+	"Lokales Radio entfernt": "Local Radio removed",
+	"kompletter Pfad zum System-Zertifikat": "complete path to System-Certifikate"
 }
 
 

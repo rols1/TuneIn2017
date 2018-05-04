@@ -2,11 +2,30 @@ CHANGE HISTORY 	TuneIn2017
 --------------	Releases: 	
 --------------	
 
-	
-19.04.2018	1.1.7	Main: skip return if the main browes-function (opml-Call) fails or is blocked by tunein. 
+
+04.05.2018	1.2.2	GetContent: adjustments for PHT (avoiding empty function parameters).
+			Main (main menu): utf-decoding for title added.
+			RequestTunein: HEADERS - Accept-Language changed from xx_XX to xx.	
+not on github	1.2.1	get_presetUrls: removed, function done in GetContentOPML.
+			StreamTests: execute last test for Shoutcast-Status only if url ends with / (e.g. KSJZ.db). 
+			my_rfind added: left orientated helpfunction for pathfinding - used in GetContent.
+			RecordsList: 'stop' added for Stop-Button (running recordings). 		
+not on github	1.2.0	RequestTunein: 3. step added using certificate for ssl-communication.
+			Preferences: option for own certificate added (used in RequestTunein, get_pls).
+			Search: 2 search-variants: 1. opml-call, 2. tunein.com/search/?query=%s.
+			GetContentOPML: analysis for opml-call - alternative for GetContent 
+not on github 	1.1.9	single function FolderMenuList for listing folder contents.
+			get_details: extended for guide_id + playing
+			Rubriken removed
+			GetContent: Buttons integrated (folders, custom_urls, Local Radio)
+not on github 	1.1.8	Switch to get main content from tunein-webpages not from opml.radiotime.com/Browse.ashx	
+			Main menu build like Tunein Webpage (items, order).
+			GetContent: getting information of most container types. Branch to website-calls
+			for links, to opml-calls for stations, podcast or similar.
+19.04.2018	1.1.7	Main: skip return if the main browes-function (opml-call) fails or is blocked by tunein. 
 			RubrikNoOPML: uppercase for relevant parameters changed. 
 			Favourit: 2-step url-requests (executed in outsourced RequestTunein), ditto PlayAudio,
-			StationList, StreamTests,get_m3u, SearchInFolders, SearchInProfile, Favourit, Folder.
+			StationList, StreamTests,get_m3u, Search InFolders, SearchInProfile, Favourit, Folder.
 			SetLocation (Dict.Save), Rubriken (ObjectContainer: no_cache=True): to provide delete-status of 
 			Local Radio if user press Back button.
 			Favourit: addded log statement for status after tunein-association-call.

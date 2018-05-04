@@ -214,5 +214,11 @@
 		"type": "text",
 		"label": "kompletter Pfad zum Download-Verzeichnis",
 		"default": "/tmp"
+	},
+	{
+		"id": "SystemCertifikat",
+		"type": "text",
+		"label": "kompletter Pfad zum System-Zertifikat",
+		"default": ""
 	}
 ]
