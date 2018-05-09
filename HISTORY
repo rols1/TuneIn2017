@@ -3,6 +3,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+09.05.2018	1.2.3	Main: linkage of USER_URL with serial-ID replaced with username (like in previos versions).  
+			Main: test for existing System-Certifikate added (if used in preferences).
 04.05.2018	1.2.2	GetContent: adjustments for PHT (avoiding empty function parameters).
 			Main (main menu): utf-decoding for title added.
 			RequestTunein: HEADERS - Accept-Language changed from xx_XX to xx.	

@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.2'	
-VDATE = '04.05.2018'
+VERSION =  '1.2.3'	
+VDATE = '09.05.2018'
 
 # 
 #	
@@ -85,7 +85,7 @@ MENU_ICON 	=  	{'menu-lokale.png', 'menu-musik.png', 'menu-sport.png', 'menu-new
 #	opml-Calls weiter verwendet für Fav's, Folders, audience_url, Account-Queries.
 # ROOT_URL 	= 'https://opml.radiotime.com/Browse.ashx?formats=%s'
 ROOT_URL 	= 'https://tunein.com/radio/home/'						
-USER_URL 	= 'https://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&serial=%s'
+USER_URL 	= 'https://opml.radiotime.com/Browse.ashx?c=presets&partnerId=RadioTime&username=%s'
 RECENTS_URL	= 'https://api.tunein.com/categories/recents?formats=%s&serial=%s&partnerId=RadioTime&version=2.22'
 
 PREFIX 		= '/music/tunein2017'
@@ -209,12 +209,12 @@ def Main():
 	passwort = Prefs['passwort']										# dto.
 	if Dict['serial'] == None:
 		Dict['serial'] = serial_random()								# eindeutige serial-ID für Tunein für Favoriten u.ä.
-		Log('serial-ID erzeugt')										# 	wird nach Löschen Plugin-Cache neu erzeugt
+		Log('serial-ID erzeugt')										# 	wird nach Löschen Plugin-Cache neu erzeugt				
 	Log('serial-ID: ' + Dict['serial'])												
 	                  		
 	if username:
 		my_title = u'%s' % L('Meine Favoriten')
-		my_url = USER_URL % Dict['serial']								# hier auch username möglich
+		my_url = USER_URL % username									# nicht serial-ID! Verknüpfung mit Account kann fehlen
 		if Prefs['StartWithFavourits']:									# Favoriten + SearchUpdate direkt anzeigen 
 			oc = GetContent( url=my_url, title=my_title, offset=0)
 			oc = SearchUpdate(title=NAME, start='true', oc=oc)			# Updater-Modul einbinden
@@ -230,6 +230,15 @@ def Main():
 	if  Prefs['PlusAAC'] == False:										# Performance, aac nicht bei allen Sendern 
 		formats = 'mp3'
 	Dict['formats'] = formats											# Verwendung: Trend, opml- und api-Calls
+	
+	if Prefs['SystemCertifikat']:		# Vorabtest - in RequestTunein problematisch für return ObjectContainer	
+		cafile = Prefs['SystemCertifikat']	
+		Log(cafile)
+		if os.path.exists(cafile) == False:
+			msg = 'System-Certifikate ' + L("nicht gefunden") + ': ' + cafile
+			Log(msg)
+			return ObjectContainer(header=L('Fehler'), message=msg)		
+	
 	
 	page, msg = RequestTunein(FunctionName='Main', url=ROOT_URL)		# Hauptmenü von Webseite
 	Log(len(page))
@@ -359,8 +368,7 @@ def Search(query=None):
 		query = urllib2.quote(query, "utf-8")
 		Log('url: ' + url)
 		oc = GetContentOPML(url=url, title=oc_title2, offset=0)	
-		
-		
+			
 	
 	if len(oc) == 1:
 		title = 'Keine Suchergebnisse zu'
@@ -827,14 +835,14 @@ def RequestTunein(FunctionName, url, GetOnlyHeader=None):
 			Log(msg)
 			msg = L('keine Eintraege gefunden') + " | %s" % msg	
 			page=''
-			
+		
 	if page == '':	
 		msg=''			
 		try:																# Step 3: urllib2.Request mit Zertifikat
 			Log("RequestTunein, step 3, called from %s" % FunctionName)
 			cafile = Core.storage.abs_path(Core.storage.join_path(MyContents, 'Resources', 'ca-bundle.pem'))
-			if Prefs['SystemCertifikat']:		# Bsp. "/etc/certbot/live/rols1.dd-dns.de/fullchain.pem"	
-				cafile = Prefs['SystemCertifikat']	
+			if Prefs['SystemCertifikat']:			# Bsp. "/etc/certbot/live/rols1.dd-dns.de/fullchain.pem"	
+				cafile = Prefs['SystemCertifikat']	# Test path.exists in Main
 			Log(cafile)
 			req = urllib2.Request(url)			
 			req.add_header('Accept-Language',  '%s, en;q=0.8' % loc_browser) 	# Quelle Language-Werte: Chrome-HAR
