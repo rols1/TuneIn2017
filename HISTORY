@@ -3,6 +3,14 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+21.05.2018	1.2.4	GetContent: comparison of title (text) and preset_id in link-list aligned to tunein-method -
+			for more deails see comments (german) in GetContent near mytype = mytype.title()
+			GetContent: guideId in Station_url replaced with preset_id (guideId sometimes links not to 
+			a station) - except for links to a mp3-source.
+			GetContent: empty-test for url in index-loop removed (obsolet).
+			GetContent: wrong add factor for offset removed.
+			../Resources/textpage.mp3 updated (more acoustic understandable).
+			GetContent: FollowText (summary) replaced with seoName if FollowText = Title.
 09.05.2018	1.2.3	Main: linkage of USER_URL with serial-ID replaced with username (like in previos versions).  
 			Main: test for existing System-Certifikate added (if used in preferences).
 04.05.2018	1.2.2	GetContent: adjustments for PHT (avoiding empty function parameters).

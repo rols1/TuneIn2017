@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.3'	
-VDATE = '09.05.2018'
+VERSION =  '1.2.4'	
+VDATE = '21.05.2018'
 
 # 
 #	
@@ -672,9 +672,9 @@ def GetContent(url, title, offset=0):
 		if	'"hasProgressBar":true' in index:					
 			continue
 			
-		# text	= stringextract('"title":"', '"', index)		# Sendername
 		text	= stringextract('"title":', '",', index)		# Sonderbhdl. wg. "\"Sticky Fingers\" ...
 		text	= text[1:].replace('\\"', '"')	
+		seoName	= stringextract('"seoName":"', '"', index)		# -> url-Abgleich
 
 		#if 'Religious Music' in index:									# Debug: Datensatz
 		#	Log(index)
@@ -689,20 +689,20 @@ def GetContent(url, title, offset=0):
 		ShareText	= stringextract('"shareText":"', '"', index)
 		preset_id 	= stringextract('"id":"', '"', index)		# dto. targetItemId, scope, guideId -> url
 		guideId 	= stringextract('"guideId":"', '"', index)	# Bsp. t121001218 -> opml-url zum mp3-Quelle
-		seoName 	= stringextract('"seoName":"', '"', index)	# -> url
+		path 		= stringextract('"path":"', '"', index)		# -> url_title - url-Abgleich
+		linkfilter 	= stringextract('"filter":"', '"', index)	# dto.
+		linkfilter	= 'filter%3D' + linkfilter
 		
 		play_part	= stringextract('"play"', '}', index)		# Check auf abspielbaren Inhalt in Programm
 		# Log(play_part)
 		sec_gId		=  stringextract('"guideId":"', '"', play_part)# macht ev. Programm/Category zur Station		
 		if sec_gId.startswith('t') or  sec_gId.startswith('s'):
 			 guideId = sec_gId
-				
-		Log("%s | %s | %s | %s | %s | %s | %s"	% (mytype,text,FollowText,ShareText,seoName,preset_id,guideId))	# bei Bedarf
-		Log('url: ' + url)								
-		if url == '':						# Test auf url=local_url s.u.
-			Log('skip: empty url')
-			continue
+		# bei Bedarf: 	
+		# Log("%s | %s | %s | %s | %s | %s | %s | %s | %s"	% (mytype,text,seoName,FollowText,ShareText,linkfilter,preset_id,guideId,path))
 			
+		if 	FollowText == text:
+			FollowText = seoName
 		if FollowText == '':				# PHT: leere Parameter absichern 
 			FollowText = ShareText
 			if FollowText == '':
@@ -714,19 +714,36 @@ def GetContent(url, title, offset=0):
 		mytype = mytype.title()
 		if mytype == 'Link' or mytype == 'Category' or mytype == 'Program':		# Callback Link
 			#  die Url im Datensatz ist im Plugin nicht verwendbar ( api-Call -> profiles)
-			#	daher verwenden wir die fertigen Links aus dem linken Menü der Webseite ('guide-item__guideItemLink').
-			# 	Die Links werden mittels title identifiziert.	
-			#		
+			#	daher verwenden wir die fertigen Links aus dem linken Menü der Webseite ('guide-item__guideItemLink
+			#	Die Links mixt Tunein mit preset_id, guideId, linkfilter. 
+			#	Zusätzl. Problem: die Link-Sätze enthalten Verweis auf Folgesatz mit preset_id 
+			#	(Bsp. data-nextGuideItem="c100000625")
+			# 	Bisher sicherste Identifizierung (vorher über den Titel = text): Abgleich mit preset_id am
+			#	Ende des Links. Bei Sprachen verwendet Tunein (außer bei Bashkirisch) nur linkfilter im Link.
+			# 				
+			url_found = False
+			if preset_id == 'languages':		# nur mit linkfilter suchen (bei Tunein nur bei Languages)
+				url_title = linkfilter
+			else:
+				url_title = "-%s/" % preset_id
+																	
+			# Log('url_title: ' + url_title)
 			for link in link_list:
-				# Log(link)
-				if text in link:			# preset_id kann fehlen 
-					# Log(link)
-					local_url = base_url + stringextract('href="', '"', link)
-					break					
-			
-			# Log(local_url); # Log(image);
+				local_url = base_url + stringextract('href="', '"', link)
+				if url_title in local_url:			
+					# Log('url_found: ' + local_url)
+					url_found = True
+					link_list.remove(link)								# Sätze mit ident. linkfilter möglich
+					break
+					
+			if not url_found:
+				msg = ('no preset_id in link for: %s | %s' % (text,preset_id)) # selten: Link zu Main Menu, Bsp. Podcast
+				Log(msg); Log(preset_id); Log(local_url)
+				# return ObjectContainer(header=L('Info'), message=msg)	# nur Debug
+				continue
+											
+			Log('Link_url: ' + local_url); # Log(image);
 			if url == local_url:
-				Log('local_url: ' + local_url)								
 				Log('skip: url=local_url')
 				continue
 			if local_url == '':					# bei Programmcontainern möglich 
@@ -735,9 +752,12 @@ def GetContent(url, title, offset=0):
 			summ_mehr = L('Mehr...')
 			oc.add(DirectoryObject(key = Callback(GetContent, url=local_url, title=text, offset=offset),	
 				title=text, summary=summ_mehr, thumb=R(ICON))) 
+				
 		if mytype == 'Station' or mytype == 'Topic':							# Callback Station
-			local_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=%s' % (guideId, Dict['formats'])
-			Log(local_url); # Log(image);
+			if preset_id.startswith('p'):
+				preset_id = guideId				# mp3-Quelle in guideId., Bsp. t109814382
+			local_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=%s' % (preset_id, Dict['formats'])
+			Log('Station_url: ' + local_url);	# Log(image);							
 			oc.add(DirectoryObject(
 				key = Callback(StationList, url=local_url, title=text, summ=summ, image=image, typ='Station', bitrate='unknown',
 				preset_id=preset_id),
@@ -751,7 +771,7 @@ def GetContent(url, title, offset=0):
 				offset=0
 				break					# Schleife beenden
 			elif len(oc) >= max_count:	# Mehr, wenn max_count erreicht
-				offset = offset + max_count +2	
+				offset = offset + max_count 	
 				title = L('Mehr...') + title_org
 				summ_mehr = L('Mehr...') + '(max.: %s)' % page_cnt
 				oc.add(DirectoryObject(
