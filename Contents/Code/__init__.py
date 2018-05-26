@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.4'	
-VDATE = '21.05.2018'
+VERSION =  '1.2.5'	
+VDATE = '26.05.2018'
 
 # 
 #	
@@ -383,7 +383,7 @@ def get_presetUrls(oc, outline):						# Auswertung presetUrls für GetContent
 	for rubrik in rubriken:	 # presetUrls ohne bitrate + subtext, type=link. Behandeln wie typ == 'audio'
 		typ,local_url,text,image,key,subtext,bitrate,preset_id = get_details(line=rubrik)	# xml extrahieren
 		subtext = 'CustomURL'
-		bitrate = 'unknown'		# dummy für PHT
+		bitrate = 'unknown'		# dummy für PHT -> Blank in StationList
 		typ = 'unknown'			# dummy für PHT
 		oc.add(DirectoryObject(
 			key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ=typ, bitrate=bitrate,
@@ -503,6 +503,7 @@ def GetContent(url, title, offset=0):
 	offset = int(offset)
 	title_org = title
 	oc_title2 = title
+	url_org = url
 	
 	if url == None or url == '':
 		msg = 'GetContent: Url ' + L("nicht gefunden")	
@@ -640,12 +641,12 @@ def GetContent(url, title, offset=0):
 	# Hinw.: Seite nicht ab initialStateEl begrenzen - fehlt bei api-Ausgaben (Bsp. Recents) 
 	#if '"users":' in page:
 	#	page = page [:page.find('"users":')]
-	Log(len(page))	
+	Log('page len: ' + str(len(page)))	
 	Log(page[:80])
 	# Data.Save('xplex',page)		# Debug: Save Content	
 	# Log(page)
 	link_list = blockextract('guide-item__guideItemLink', page) # Link-List außerhalb json-Bereich
-
+	
 	if 'doctypehtml' not in page:								# api-call: Uppercase für Parameter im json-Inhalt
 		page = (page.replace('"Title"','"title"').replace('"Image"','"image"').replace('"Category"','"category"')
 			.replace('"FollowText"','"followText"').replace('"ShareText"','"shareText"').replace('"Id"','"id"')
@@ -654,37 +655,49 @@ def GetContent(url, title, offset=0):
 
 	indices = blockextract('"index":', page)
 	page_cnt = len(indices)
-	Log('indices: ' + str(page_cnt))
+	Log('indices: %s, max_count: %s' % (str(page_cnt), str(max_count)))
 	if 	max_count:									# '' = 'Mehr..'-Option ausgeschaltet?
 		page_cnt = page_cnt 
 		delnr = min(page_cnt, offset)
 		del indices[:delnr]
 		Log(delnr)				
-	Log(page_cnt); Log(len(indices))
-	
-	for index in indices:
+	Log(len(indices))
+		
+	for index in indices:		
 		# Log('index: ' + index)		
 		# einleitenden Container überspringen, dto. hasButtonStrip":true / "hasIconInSubtitle":false /
 		#	"expandableDescription" / "initialLinesCount" / "hasExpander":true
 		#	Bsp. Bill Burr's Monday Morning Podcast
 		if "children" in index:									# ohne eigenen Inhalt, children folgen
+			Log('skip: "children" in index')
 			continue
 		if	'"hasProgressBar":true' in index:					
+			Log('skip: "hasProgressBar":true in index')
 			continue
 			
-		text	= stringextract('"title":', '",', index)		# Sonderbhdl. wg. "\"Sticky Fingers\" ...
-		text	= text[1:].replace('\\"', '"')	
-		seoName	= stringextract('"seoName":"', '"', index)		# -> url-Abgleich
+		index = index.replace('\\"', '*')							# Bsp. Die \"beste\" Erfindung..
+		title		= stringextract('"title":', '",', index)		# Sonderbhdl. wg. "\"Sticky Fingers\" ...
+		title		= title[1:].replace('\\"', '"')	
+		title		= title.replace('\u002F', '/')
+		subtitle	= stringextract('"subtitle":"', '"', index)		# Datum lokal
+		subtitle	= (subtitle.replace('\u002F', '/').replace('\u003E', '').replace('\u003C', ''))
+		publishTime	= stringextract('"publishTime":"', '"', index)	# Format 2017-10-26T16:50:58
+		seoName		= stringextract('"seoName":"', '"', index)		# -> url-Abgleich
+		if '"description"' in index:
+			descr		= stringextract('"description":"', '"', index)	
+		else:
+			descr		= stringextract('"text":"', '"', index)		# description
+		descr	= (descr.replace('\u002F', '/').replace('\u003E', '').replace('\u003C', ''))
 
 		#if 'Religious Music' in index:									# Debug: Datensatz
 		#	Log(index)
 		
+		myindex	= stringextract('"index":"', '"', index)	
 		mytype	= stringextract('"type":"', '"', index)	
 		image	= stringextract('"image":"', '"', index)		# Javascript Unicode escape \u002F
-		image	= image.replace('\u002F', '/')						# Standard-Icon für Kategorie
+		image	= image.replace('\u002F', '/')					# Standard-Icon für Kategorie
 		if image == '':
 			image=R(ICON)
-		text	= text.replace('\u002F', '/')
 		FollowText	= stringextract('"followText":"', '"', index)
 		ShareText	= stringextract('"shareText":"', '"', index)
 		preset_id 	= stringextract('"id":"', '"', index)		# dto. targetItemId, scope, guideId -> url
@@ -698,28 +711,31 @@ def GetContent(url, title, offset=0):
 		sec_gId		=  stringextract('"guideId":"', '"', play_part)# macht ev. Programm/Category zur Station		
 		if sec_gId.startswith('t') or  sec_gId.startswith('s'):
 			 guideId = sec_gId
-		# bei Bedarf: 	
-		# Log("%s | %s | %s | %s | %s | %s | %s | %s | %s"	% (mytype,text,seoName,FollowText,ShareText,linkfilter,preset_id,guideId,path))
+			 
 			
-		if 	FollowText == text:
-			FollowText = seoName
-		if FollowText == '':				# PHT: leere Parameter absichern 
-			FollowText = ShareText
-			if FollowText == '':
-				FollowText = 'empty'
-		text		= text.decode(encoding="utf-8")
-		summ		= FollowText.decode(encoding="utf-8")
-		tagline		= ShareText.decode(encoding="utf-8")
-		
+		# bei Bedarf: 	
+		#Log("%s | %s | %s | %s | %s | %s | %s"	% (myindex,mytype,title,subtitle,publishTime,seoName,FollowText))
+		#Log("%s | %s | %s | %s | %s | %s"		% (ShareText,descr,linkfilter,preset_id,guideId,path))
+			
+		if title in ShareText or subtitle in ShareText:		# Ergänzung: Höre .. auf TuneIn
+			ShareText = ''			
+		if seoName in title:				# seoName = Titel
+			seoName = ''
+											
 		mytype = mytype.title()
+	# ------------------------------------------------------------------	
+	# 																	Callback Link
+	# ------------------------------------------------------------------	
 		if mytype == 'Link' or mytype == 'Category' or mytype == 'Program':		# Callback Link
-			#  die Url im Datensatz ist im Plugin nicht verwendbar ( api-Call -> profiles)
-			#	daher verwenden wir die fertigen Links aus dem linken Menü der Webseite ('guide-item__guideItemLink
+			# die Url im Datensatz ist im Plugin nicht verwendbar ( api-Call -> profiles)
+			# 	daher verwenden wir die fertigen Links aus dem linken Menü der Webseite ('guide-item__guideItemLink
 			#	Die Links mixt Tunein mit preset_id, guideId, linkfilter. 
 			#	Zusätzl. Problem: die Link-Sätze enthalten Verweis auf Folgesatz mit preset_id 
 			#	(Bsp. data-nextGuideItem="c100000625")
-			# 	Bisher sicherste Identifizierung (vorher über den Titel = text): Abgleich mit preset_id am
+			# Bisher sicherste Identifizierung (vorher über den Titel = title): Abgleich mit preset_id am
 			#	Ende des Links. Bei Sprachen verwendet Tunein (außer bei Bashkirisch) nur linkfilter im Link.
+			# Sätze überspringen (url == local_url) - Link zu Station zwar möglich (dann in guideId), aber 
+			#	Stream häufig nicht verfügbar (künftige od. zeitlich begrenzte Sendung). 
 			# 				
 			url_found = False
 			if preset_id == 'languages':		# nur mit linkfilter suchen (bei Tunein nur bei Languages)
@@ -727,7 +743,7 @@ def GetContent(url, title, offset=0):
 			else:
 				url_title = "-%s/" % preset_id
 																	
-			# Log('url_title: ' + url_title)
+			# Log('url_title: ' + url_title)	# Bei Bedarf
 			for link in link_list:
 				local_url = base_url + stringextract('href="', '"', link)
 				if url_title in local_url:			
@@ -737,40 +753,59 @@ def GetContent(url, title, offset=0):
 					break
 					
 			if not url_found:
-				msg = ('no preset_id in link for: %s | %s' % (text,preset_id)) # selten: Link zu Main Menu, Bsp. Podcast
+				msg = ('skip: no preset_id in link for: %s | %s' % (title,preset_id)) # selten: Link zu Main Menu, Bsp. Podcast
 				Log(msg); Log(preset_id); Log(local_url)
 				# return ObjectContainer(header=L('Info'), message=msg)	# nur Debug
 				continue
 											
-			Log('Link_url: ' + local_url); # Log(image);
+			#Log('Link_url: ' + local_url); # Log(image);	# Bei Bedarf
 			if url == local_url:
 				Log('skip: url=local_url')
 				continue
 			if local_url == '':					# bei Programmcontainern möglich 
 				Log('skip: empty local_url')
-				continue
+				continue			
+			
+			summ 	= 	subtitle			# summary -> subtitle od. FollowText
+			title		= title.decode(encoding="utf-8")
+			summ		= summ.decode(encoding="utf-8")
 			summ_mehr = L('Mehr...')
-			oc.add(DirectoryObject(key = Callback(GetContent, url=local_url, title=text, offset=offset),	
-				title=text, summary=summ_mehr, thumb=R(ICON))) 
+			oc.add(DirectoryObject(key = Callback(GetContent, url=local_url, title=title, offset=offset),	
+				title=title, summary=summ_mehr, thumb=R(ICON))) 
 				
-		if mytype == 'Station' or mytype == 'Topic':							# Callback Station
+	# ------------------------------------------------------------------	
+	# 																	Callback Station
+	# ------------------------------------------------------------------	
+		if mytype == 'Station' or mytype == 'Topic':					
 			if preset_id.startswith('p'):
 				preset_id = guideId				# mp3-Quelle in guideId., Bsp. t109814382
 			local_url = 'http://opml.radiotime.com/Tune.ashx?id=%s&formats=%s' % (preset_id, Dict['formats'])
-			Log('Station_url: ' + local_url);	# Log(image);							
+			#Log('Station_url: ' + local_url);	# Log(image);	# Bei Bedarf
+			
+			summ 	= 	subtitle			# summary -> subtitle od. FollowText
+			if len(summ) < 11 and descr:	# summary: falls Datum mit description ergänzen
+				summ = summ + ' | %s' % descr
+			tagline	= FollowText			# Bsp. 377,5K Favoriten od. 16:23 (Topic)
+			if tagline == '':				# PHT: leere Parameter absichern 
+				tagline = ' '
+			title		= title.decode(encoding="utf-8")
+			summ		= summ.decode(encoding="utf-8")
+			tagline		= tagline.decode(encoding="utf-8")
+								
+			# bitrate: PHT-dummy -> Blank in StationList		
 			oc.add(DirectoryObject(
-				key = Callback(StationList, url=local_url, title=text, summ=summ, image=image, typ='Station', bitrate='unknown',
+				key = Callback(StationList, url=local_url, title=title, summ=summ, image=image, typ='Station', bitrate='unknown',
 				preset_id=preset_id),
-				title=text, summary=summ, tagline=tagline, thumb=image))		
+				title=title, summary=summ, tagline=tagline, thumb=image))		
 				
 		if max_count:
 			# Mehr Seiten anzeigen:		
 			cnt = len(oc) + offset		# 
 			# Log('Mehr-Test: %s | %s | %s' % (len(oc), cnt, page_cnt) )
-			if cnt > page_cnt:			# Gesamtzahl erreicht - Abbruch
+			if cnt >= page_cnt:			# Gesamtzahl erreicht - Abbruch
 				offset=0
 				break					# Schleife beenden
-			elif len(oc) >= max_count:	# Mehr, wenn max_count erreicht
+			elif len(oc) > max_count:	# Mehr, wenn max_count erreicht
 				offset = offset + max_count 	
 				title = L('Mehr...') + title_org
 				summ_mehr = L('Mehr...') + '(max.: %s)' % page_cnt
@@ -778,10 +813,14 @@ def GetContent(url, title, offset=0):
 					key = Callback(GetContent, url=url, title=title_org, offset=offset),
 					title = title, summary=summ_mehr, tagline=L('Mehr...'), thumb=R(ICON_MEHR) 
 				)) 
-				break					# Schleife beenden
+				break					# Schleife beenden		
 								
 		# break	# Debug Stop
-	if len(oc) == 1:	
+		
+	Log('oc: ' + str(len(oc)))	
+	if len(oc) == 1:
+		if subtitle:					# ev. Hinweis auf künftige Sendung
+			title_org = title_org + " | %s" % subtitle	
 		msg = L('keine Eintraege gefunden: ' + title_org) 
 		Log(msg)
 		return ObjectContainer(header=L('Info'), message=msg)
@@ -912,6 +951,7 @@ def StationList(url, title, image, summ, typ, bitrate, preset_id):
 	Log(title);Log(image);Log(summ);Log(typ);Log(bitrate);Log(preset_id)
 	title = title.decode(encoding="utf-8", errors="ignore")
 	title_org=title; summ_org=summ; bitrate_org=bitrate; typ_org=typ		# sichern
+	bitrate = bitrate.replace('unknown', '')	#							# PHT-dummy entf. 
 	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)
 	
 	Log(Client.Platform)				# Home-Button macht bei PHT die Trackliste unbrauchbar 
@@ -1241,11 +1281,15 @@ def get_details(line):		# line=opml-Ergebnis im xml-Format, mittels Stringfunkti
 	if image == '':
 		image = R(ICON) 
 	key	 		= stringextract('key="', '"', line)
-	subtext 	= stringextract('subtext="', '"', line)
-	bitrate 	= stringextract('bitrate="', '"', line)
+	subtext 	= stringextract('subtext="', '"', line)		# PHT: leere Parameter absichern 
+	if subtext == '':
+		subtext = 'unknown'
+	bitrate 	= stringextract('bitrate="', '"', line)		# PHT: leere Parameter absichern 
 	if bitrate == '':
-		bitrate = '?'
-	preset_id  = stringextract('preset_id="', '"', line)
+		bitrate = 'unknown'
+	preset_id  = stringextract('preset_id="', '"', line)	# Test auf 'u..' in FolderMenuList,
+	if preset_id == '':										# daher Blank für PHT
+		preset_id = ' '
 	guide_id 	= stringextract('guide_id="', '"', line)	# Bsp. "f3"
 	playing 	= stringextract('playing="', '"', line)
 	if 	playing == subtext:									# Doppel summ. + tagline vermeiden
@@ -1256,6 +1300,8 @@ def get_details(line):		# line=opml-Ergebnis im xml-Format, mittels Stringfunkti
 	text 		= unescape(text)
 	subtext 	= unescape(subtext)
 	playing 	= unescape(playing)
+	if playing == '':
+		playing = 'unknown'
 		
 	text		= text.decode(encoding="utf-8")
 	subtext		= subtext.decode(encoding="utf-8")
@@ -1624,14 +1670,17 @@ def FolderMenuList(url, title):
 	Log(page[:100])
 	
 	title	= stringextract('<title>', '</title>', page)
+	title = title.decode(encoding="utf-8")
 	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)	
+	oc = home(oc)
 
 	items = blockextract('outline type', page)
 	Log(len(items))
 	for item in items:
 		# Log('item: ' + items)	
 		typ,local_url,text,image,key,subtext,bitrate,preset_id,guide_id,playing,is_preset = get_details(line=item)			
-		Log('%s | %s | %s | %s | %s' % (typ,text,preset_id,guide_id,local_url))
+		Log('%s | %s | %s |%s | %s' % (typ,text,subtext,playing,bitrate))
+		Log('%s | %s | %s |%s' % (preset_id,guide_id,local_url,image))
 		if preset_id.startswith('u'):				# Custom-Url -> Station
 			typ = 'audio'
 		if typ == 'link':							# Ordner
@@ -1641,10 +1690,15 @@ def FolderMenuList(url, title):
 				title = text, thumb=image
 			)) 
 		if typ == 'audio':							# Station
+			subtext = subtext.replace('unknown', '  ')	# PHT-dummy 
+			playing = playing.replace('unknown', '  ')	# PHT-dummy
+			 
+			text = text.decode(encoding="utf-8")
+			subtext = subtext.decode(encoding="utf-8")
+			
 			oc.add(DirectoryObject(
 				key = Callback(StationList, url=local_url, title=text, summ=subtext, image=image, typ='Station', bitrate=bitrate,
-				preset_id=preset_id),
-				title=text, summary=subtext, tagline=playing, thumb=image)) 			
+				preset_id=preset_id), title=text, summary=subtext, tagline=playing, thumb=image)) 			
 	return oc
 #-----------------------------
 # Ordner hinzufügen/löschen
@@ -2059,7 +2113,9 @@ def RecordsList(title):			# title=L("laufende Aufnahmen")
 		pid_sender = PID_line.split('|')[2]
 		pid_summ = PID_line.split('|')[3]
 		pid_summ = pid_summ.decode(encoding="utf-8", errors="ignore")
-		title_new = L('beenden') + ': ' + pid_sender + ' | ' + pid_summ
+		title_new = L('beenden') + ': ' + pid_sender 
+		if not 'subtext unknown' in pid_summ:
+			title_new = title_new + ' | ' + pid_summ
 		summ_new = pid_url + ' | ' + 'PID: ' + pid			
 		oc.add(DirectoryObject(key=Callback(RecordStop,url=pid_url,title=pid_sender,summ=pid_summ), title=title_new,
 			summary=summ_new, tagline=pid_url, thumb=R(ICON_STOP)))			       

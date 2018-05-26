@@ -3,6 +3,14 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+
+26.05.2018	1.2.5	FolderMenuList / get_details: fix for PHT (empty parameters filled).
+			GetContent: Title/Subtitle aligned with Link/Station.
+			GetContent: '\"' in record replaced with '*' (compatible with stringextract).
+			GetContent: in Subtitle '\u003E' and '\u003C' removed ("<" and ">").
+			GetContent: "no items found"-info complemented by subtitle (may contains future broadcast date).
+			GetContent: log statements edited.
+			RecordsList: pid_summ in title removed if placeholder 'subtext unknown'.
 21.05.2018	1.2.4	GetContent: comparison of title (text) and preset_id in link-list aligned to tunein-method -
 			for more deails see comments (german) in GetContent near mytype = mytype.title()
 			GetContent: guideId in Station_url replaced with preset_id (guideId sometimes links not to 
