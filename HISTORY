@@ -3,7 +3,11 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
-
+	
+01.06.2018	1.2.6	RecordStart: UserAgent "Mozilla/5.0" for streamripper added -  some stations 
+			block downloads with the default "Streamripper/1.x".
+			RecordsList: test on "unknown" in pid_summ adapted to get_details.
+			GetContent: '\r\n' in description replaced.
 26.05.2018	1.2.5	FolderMenuList / get_details: fix for PHT (empty parameters filled).
 			GetContent: Title/Subtitle aligned with Link/Station.
 			GetContent: '\"' in record replaced with '*' (compatible with stringextract).

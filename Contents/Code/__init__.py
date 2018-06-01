@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.5'	
-VDATE = '26.05.2018'
+VERSION =  '1.2.6'	
+VDATE = '01.06.2018'
 
 # 
 #	
@@ -687,7 +687,8 @@ def GetContent(url, title, offset=0):
 			descr		= stringextract('"description":"', '"', index)	
 		else:
 			descr		= stringextract('"text":"', '"', index)		# description
-		descr	= (descr.replace('\u002F', '/').replace('\u003E', '').replace('\u003C', ''))
+		descr	= (descr.replace('\u002F', '/').replace('\u003E', '').replace('\u003C', '')
+			.replace('\\r\\n', ' '))
 
 		#if 'Religious Music' in index:									# Debug: Datensatz
 		#	Log(index)
@@ -714,8 +715,8 @@ def GetContent(url, title, offset=0):
 			 
 			
 		# bei Bedarf: 	
-		#Log("%s | %s | %s | %s | %s | %s | %s"	% (myindex,mytype,title,subtitle,publishTime,seoName,FollowText))
-		#Log("%s | %s | %s | %s | %s | %s"		% (ShareText,descr,linkfilter,preset_id,guideId,path))
+		Log("%s | %s | %s | %s | %s | %s | %s"	% (myindex,mytype,title,subtitle,publishTime,seoName,FollowText))
+		Log("%s | %s | %s | %s | %s | %s"		% (ShareText,descr,linkfilter,preset_id,guideId,path))
 			
 		if title in ShareText or subtitle in ShareText:		# Ergänzung: Höre .. auf TuneIn
 			ShareText = ''			
@@ -1269,7 +1270,7 @@ def get_m3u(url):               # m3u extrahieren - Inhalte mehrerer Links werde
     
 #-----------------------------
 def get_details(line):		# line=opml-Ergebnis im xml-Format, mittels Stringfunktionen extrahieren 
-	# Log('get_details')
+	# Log('get_details')	# 
 	typ='';local_url='';text='';image='';key='';subtext='';bitrate='';preset_id='';guide_id='';playing=''
 	
 	typ 		= stringextract('type="', '"', line)
@@ -1982,8 +1983,16 @@ def RecordStart(url,title,title_org,image,summ,typ,bitrate, **kwargs):			# Aufna
 			Log(msg)
 			return ObjectContainer(header=L('Fehler'), message=msg)		
 					
-	# cmd-Bsp.: streamripper http://addrad.io/4WRMHX --quiet -d /tmp 		
-	cmd = "%s %s --quiet -d %s"	% (AppPath, url_clean, DestDir)		
+	# cmd-Bsp.: streamripper http://addrad.io/4WRMHX --quiet -d /tmp -u Mozilla/5.0
+	#	30.05.2018 UserAgent hinzugefügt (Error: Access Forbidden (try changing the UserAgent)) -
+	#	einige Sender verweigern den Download beim Default Streamripper/1.x
+	#	Konfig-Alternative:  /var/lib/plexmediaserver/.config/streamripper/streamripper.ini	
+	#	MP3-Problem: streamripper speichert .mp3 im incomplet-Verz. und geht in Endlosschleife -
+	#		Versuch mit Titel -> Dateiname plus Timestamp abgebrochen (Endlosschleife bleibt,
+	#		streamripper verwendet weiter unterschiedl. Verz., abhängig  von Url) - Code
+	#		s. __init__.py_v1.2.5_mp3-download
+	UserAgent = "Mozilla/5.0"
+	cmd = "%s %s --quiet -d %s -u %s"	% (AppPath, url_clean, DestDir, UserAgent)		
 	Log('cmd: ' + cmd)
 				
 	Log(sys.platform)
@@ -2114,7 +2123,7 @@ def RecordsList(title):			# title=L("laufende Aufnahmen")
 		pid_summ = PID_line.split('|')[3]
 		pid_summ = pid_summ.decode(encoding="utf-8", errors="ignore")
 		title_new = L('beenden') + ': ' + pid_sender 
-		if not 'subtext unknown' in pid_summ:
+		if not 'unknown' in pid_summ:
 			title_new = title_new + ' | ' + pid_summ
 		summ_new = pid_url + ' | ' + 'PID: ' + pid			
 		oc.add(DirectoryObject(key=Callback(RecordStop,url=pid_url,title=pid_sender,summ=pid_summ), title=title_new,
