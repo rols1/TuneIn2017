@@ -3,7 +3,9 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
-	
+27.09.2018	1.2.7	StreamTests: test p.params replaced with test len(url_split).
+			StreamTests: SHOUTcast Stream Status test ('Stream is') removed.
+			getStreamMeta: return-Parameter shoutcast added.
 01.06.2018	1.2.6	RecordStart: UserAgent "Mozilla/5.0" for streamripper added -  some stations 
 			block downloads with the default "Streamripper/1.x".
 			RecordsList: test on "unknown" in pid_summ adapted to get_details.

@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.6'	
-VDATE = '01.06.2018'
+VERSION =  '1.2.7'	
+VDATE = '27.09.2018'
 
 # 
 #	
@@ -1095,7 +1095,8 @@ def StreamTests(url_list,summ_org):
 				st=1; ret={}
 			else:
 				ret = getStreamMeta(url)		# Sonderfälle: Shoutcast, Icecast usw. Bsp. http://rs1.radiostreamer.com:8020,
-				st = ret.get('status')			# 	http://217.198.148.101:80/
+				Log(ret)						# 	http://217.198.148.101:80/
+				st = ret.get('status')	
 			Log('ret.get.status: ' + str(st))
 			
 			if st == 0:							# nicht erreichbar, verwerfen. Bsp. http://server-uk4.radioseninternetuy.com:9528
@@ -1134,12 +1135,22 @@ def StreamTests(url_list,summ_org):
 					if url.endswith('.fm/'):			# Bsp. http://mp3.dinamo.fm/ (SHOUTcast-Stream)
 						url = '%s;' % url
 					else:								# ohne Portnummer, ohne Pfad: letzter Test auf Shoutcast-Status 
-						# p = urlparse(url)
-						# if p.path == '':				
-						if url.endswith('/'):			# skip path-Test (Bsp. KSJZ.db http://sl64.hnux.com/)
-							cont, msg = RequestTunein(FunctionName='StreamTests - Shoutcast-Status', url=url)
-							if 	'<b>Stream is up' in cont:
-								Log('Shoutcast ohne Portnummer: <b>Stream is up at')
+						#p = urlparse(url)				# Test auf url-Parameter nicht verlässlich
+						#if 	p.params == '':	
+						url_split = url.split('/')		
+						Log(len(url_split))
+						if len(url_split) <= 4:			# Bsp. http://station.io, http://sl64.hnux.com/
+							if url.endswith('/'):
+								url = url[:len(url)-1]	# letztes / entfernen 
+							# 27.09.2018 Verzicht auf "Stream is up"-Test. Falls keine Shoutcast-Seite, würde der
+							#	Stream geladen, was hier zum Timeout führt. Falls erforderlich, hier Test auf 
+							#  	ret.get('shoutcast') voranstellen.
+							#cont = HTTP.Request(url).content# Bsp. Radio Soma -> http://live.radiosoma.com
+							#if 	'<b>Stream is up' in cont:			# 26.09.2018 früheres '.. up at' manchmal zu lang
+							#Log('Shoutcast ohne Portnummer: <b>Stream is up at')
+							shoutcast = ret.get('shoutcast')
+							Log(ret.get('shoutcast'))
+							if 'shoutcast' in shoutcast.lower(): # an Shoutcast-url /; anhängen
 								url = '%s/;' % url	
 																		
 			Log('append: ' + url)	
@@ -2349,8 +2360,8 @@ def myL(string):		# Erweiterung, falls L(string) von czukowski nicht funktionier
 #	getStreamMeta wertet die Header der Stream-Typen und -Services Shoutcast, Icecast / Radionomy, 
 #		Streammachine, tunein aus und ermittelt die Metadaten.
 #		Zusätzlich wird die Url auf eine angehängte Portnummer geprüft.
-# 	Rückgabe 	Bsp. 1. {'status': 1, 'hasPortNumber': 'false', 'metadata': False, 'error': error}
-#				Bsp. 2.	{'status': 1, 'hasPortNumber': 'true', 'error': error, 
+# 	Rückgabe 	Bsp. 1. {'status': 1, 'hasPortNumber': 'false', 'shoutcast': 'false', 'metadata': false, error': error}
+#				Bsp. 2.	{'status': 1, 'hasPortNumber': 'true',  'shoutcast': 'true', 'error': error, 
 #						'metadata': {'contenttype': 'audio/mpeg', 'bitrate': '64', 
 #						'song': 'Nasty Habits 41 - Senza Filtro 2017'}}
 #		
@@ -2421,22 +2432,22 @@ def getStreamMeta(address):
 			metadata = False
 		response.close()
 		error=''
-		return {"status": status, "metadata": metadata, "hasPortNumber": hasPortNumber, "error": error}
+		return {"status": status, "metadata": metadata, "hasPortNumber": hasPortNumber, "shoutcast": shoutcast, "error": error}
 
 	except urllib2.HTTPError, e:	
 		error='Error, HTTP-Error = ' + str(e.code)
 		Log(error)
-		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}
+		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "shoutcast": shoutcast, "error": error}
 
 	except urllib2.URLError, e:						# Bsp. RANA FM 88.5 http://216.221.73.213:8000
 		error='Error, URL-Error: ' + str(e.reason)
 		Log(error)
-		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}
+		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "shoutcast": shoutcast, "error": error}
 
 	except Exception, err:
 		error='Error: ' + str(err)
 		Log(error)
-		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "error": error}
+		return {"status": status, "metadata": None, "hasPortNumber": hasPortNumber, "shoutcast": shoutcast, "error": error}
 #----------------------------------------------------------------  
 #	Hilfsfunktionen für getStreamMeta
 #----------------------------------------------------------------  
