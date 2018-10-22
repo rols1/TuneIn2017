@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.7'	
-VDATE = '27.09.2018'
+VERSION =  '1.2.9'	
+VDATE = '22.10.2018'
 
 # 
 #	
@@ -595,6 +595,7 @@ def GetContent(url, title, offset=0):
 				Log(region)
 				oc_title2 = oc_title2 + ' (%s)' % region
 	
+	
 	oc_title2 = oc_title2.decode(encoding="utf-8")
 	oc = ObjectContainer(no_cache=True, title2=oc_title2, art=ObjectContainer.art)
 	oc = home(oc)
@@ -1148,7 +1149,7 @@ def StreamTests(url_list,summ_org):
 							#cont = HTTP.Request(url).content# Bsp. Radio Soma -> http://live.radiosoma.com
 							#if 	'<b>Stream is up' in cont:			# 26.09.2018 früheres '.. up at' manchmal zu lang
 							#Log('Shoutcast ohne Portnummer: <b>Stream is up at')
-							shoutcast = ret.get('shoutcast')
+							shoutcast = str(ret.get('shoutcast'))
 							Log(ret.get('shoutcast'))
 							if 'shoutcast' in shoutcast.lower(): # an Shoutcast-url /; anhängen
 								url = '%s/;' % url	
@@ -1682,6 +1683,7 @@ def FolderMenuList(url, title):
 	Log(page[:100])
 	
 	title	= stringextract('<title>', '</title>', page)
+	title = unescape(title)
 	title = title.decode(encoding="utf-8")
 	oc = ObjectContainer(no_cache=True, title2=title, art=ObjectContainer.art)	
 	oc = home(oc)
@@ -2532,6 +2534,7 @@ def shoutcastCheck(response, headers, itsOld):
 		Log("icy metaint: " + str(metaint))
 		read_buffer = metaint + 255
 		content = response.read(read_buffer)
+		# Data.SaveObject("/tmp/icy_content",content)	# Debug
 
 		start = "StreamTitle='"
 		end = "';"

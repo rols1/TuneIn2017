@@ -3,6 +3,8 @@ CHANGE HISTORY 	TuneIn2017
 --------------	
 
 
+22.10.2018	1.2.9	StreamTests: variable shoutcast protected against content None.	
+28.09.2018	1.2.8	FolderMenuList: unescape title (to prevent "user&apos;s Favorite").
 27.09.2018	1.2.7	StreamTests: test p.params replaced with test len(url_split).
 			StreamTests: SHOUTcast Stream Status test ('Stream is') removed.
 			getStreamMeta: return-Parameter shoutcast added.
