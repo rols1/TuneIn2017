@@ -18,8 +18,8 @@ import updater
 
 # +++++ TuneIn2017 - tunein.com-Plugin für den Plex Media Server +++++
 
-VERSION =  '1.2.9'	
-VDATE = '22.10.2018'
+VERSION =  '1.3.0'	
+VDATE = '23.11.2018'
 
 # 
 #	
@@ -1128,10 +1128,15 @@ def StreamTests(url_list,summ_org):
 							summ = '%s | Bitrate: %sKB' % (summ_org, bitrate)		# altes summary ergänzen
 					Log('summ: ' + summ)		
 				if  ret.get('hasPortNumber') == 'true': # auch SHOUTcast ohne Metadaten möglich, Bsp. Holland FM Gran Canaria,
-					if url.endswith('/'):				#	http://stream01.streamhier.nl:9010
+					if url.endswith('/'):				#	
 						url = '%s;' % url
-					else:
-						url = '%s/;' % url
+					else:								# Stream mit Portnummer, aber ohne / am Urlende - Berücksichtigung
+						#  Icecast-Server. :
+						Log("ret.get('shoutcast'): " + ret.get('shoutcast'))
+						if 'Icecast' in ret.get('shoutcast'): 			# Bsp.  Sender Hi On Line,
+							pass										# 		http://mediaserv33.live-streams.nl:8036
+						else:											#  Bsp. Holland FM Gran Canaria,
+							url = '%s/;' % url							# 		http://stream01.streamhier.nl:9010	
 				else:	
 					if url.endswith('.fm/'):			# Bsp. http://mp3.dinamo.fm/ (SHOUTcast-Stream)
 						url = '%s;' % url
