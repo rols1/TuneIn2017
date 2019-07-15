@@ -14,7 +14,7 @@ EMail: rols1@gmx.de
 #### 29.05.2019 Plex has removed (since server-Version 1.15.6.1079) support for Plugins also in the Webclient. If you want to use an older solution (still works), please take a look here: https://forums.plex.tv/discussion/comment/1457027/#Comment_1457027
 
 #### 15.07.2019 a Kodi-Port of this plugin is finished:
-Forum: https://www.kodinerds.net/index.php/Thread/66559-RELEASE-Kodi-Addon-TuneIn2017
+Forum: https://www.kodinerds.net/index.php/Thread/66559-RELEASE-Kodi-Addon-TuneIn2017<br>
 Github: https://github.com/rols1/Kodi-Addon-TuneIn2017/releases
 
 
