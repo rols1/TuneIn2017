@@ -1,7 +1,7 @@
 TuneIn2017
 ==================
 
-#### 29.08.2019 Plex has phased out plugins in clients - so I stopped  support for this plugin.
+#### 29.08.2019 Plex has phased out plugins in clients - so I stopped  support for this plugin. If you are using Kodi you can try the Kodi port (see below).
 
 tunein.com-Plugin für den Plex Media Server
 
