@@ -1,5 +1,8 @@
 TuneIn2017
 ==================
+
+#### 29.08.2019 Plex has phased out plugins in clients - so I stopped  support for this plugin.
+
 tunein.com-Plugin für den Plex Media Server
 
 Download aktuelle Version: https://github.com/rols1/TuneIn2017/releases
